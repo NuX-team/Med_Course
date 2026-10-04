@@ -1,0 +1,11 @@
+drop table course_transitions;
+drop table reminder_policies;
+drop table schedule_rules;
+drop table course_medications;
+alter table treatment_courses drop constraint treatment_courses_current_revision_fk;
+drop table course_revisions;
+drop table treatment_courses;
+drop function schedule_rules_guard();
+drop function course_medications_guard();
+drop function course_revisions_guard();
+drop function assert_revision_is_draft(uuid);

@@ -1,0 +1,45 @@
+{
+  "name": "medcourse",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22.9"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "dev:bot": "pnpm --filter @medcourse/bot dev",
+    "dev:worker": "pnpm --filter @medcourse/worker dev",
+    "dev:panel": "pnpm --filter @medcourse/panel dev",
+    "test:unit": "vitest run --project unit",
+    "test:db": "vitest run --project db",
+    "db:migrate": "pnpm --filter @medcourse/db db:migrate",
+    "db:rollback": "pnpm --filter @medcourse/db db:rollback",
+    "db:status": "pnpm --filter @medcourse/db db:status",
+    "dev:db": "pnpm --filter @medcourse/db dev:db",
+    "admin": "pnpm --filter @medcourse/bot admin",
+    "db:backup": "pnpm --filter @medcourse/db db:backup",
+    "db:restore": "pnpm --filter @medcourse/db db:restore",
+    "db:restore-drill": "pnpm --filter @medcourse/db db:restore-drill"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.1",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.9",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  }
+}

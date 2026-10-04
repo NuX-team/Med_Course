@@ -1,0 +1,100 @@
+name: medcourse
+
+x-app: &app
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+  environment:
+    APP_ENV: local
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+    DATABASE_URL: postgres://${POSTGRES_USER:-medcourse}:${POSTGRES_PASSWORD:-medcourse}@postgres:5432/${POSTGRES_DB:-medcourse}
+  # Liveness only: restarting a process will not bring a database back.
+  healthcheck:
+    test:
+      - CMD
+      - node
+      - -e
+      - fetch('http://127.0.0.1:'+process.env.HTTP_PORT+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))
+    interval: 10s
+    timeout: 3s
+    start_period: 10s
+    retries: 3
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-medcourse}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-medcourse}
+      POSTGRES_DB: ${POSTGRES_DB:-medcourse}
+    ports:
+      - '127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  bot:
+    <<: *app
+    build:
+      context: .
+      args:
+        APP: bot
+    environment:
+      APP_ENV: local
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgres://${POSTGRES_USER:-medcourse}:${POSTGRES_PASSWORD:-medcourse}@postgres:5432/${POSTGRES_DB:-medcourse}
+      ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:-dev1:V4utw/HLyM+4n8fMSsURXViNYbg7eI5EGnlVKqaLGa0=}
+      HTTP_PORT: '3000'
+      # Blank means unset; without a token the bot refuses to start and says so.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_MODE: ${TELEGRAM_MODE:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      # Where staff open the panel: the bot builds /panel sign-in links from it.
+      PANEL_BASE_URL: ${PANEL_BASE_URL:-http://localhost:3002}
+    ports:
+      - '127.0.0.1:3000:3000'
+
+  worker:
+    <<: *app
+    build:
+      context: .
+      args:
+        APP: worker
+    environment:
+      APP_ENV: local
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgres://${POSTGRES_USER:-medcourse}:${POSTGRES_PASSWORD:-medcourse}@postgres:5432/${POSTGRES_DB:-medcourse}
+      ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:-dev1:V4utw/HLyM+4n8fMSsURXViNYbg7eI5EGnlVKqaLGa0=}
+      HTTP_PORT: '3001'
+      # The worker sends the reminders, so it needs the same bot token as the bot.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+    ports:
+      - '127.0.0.1:3001:3001'
+
+  panel:
+    <<: *app
+    build:
+      context: .
+      args:
+        APP: panel
+    environment:
+      APP_ENV: local
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgres://${POSTGRES_USER:-medcourse}:${POSTGRES_PASSWORD:-medcourse}@postgres:5432/${POSTGRES_DB:-medcourse}
+      ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:-dev1:V4utw/HLyM+4n8fMSsURXViNYbg7eI5EGnlVKqaLGa0=}
+      HTTP_PORT: '3002'
+      PANEL_BASE_URL: ${PANEL_BASE_URL:-http://localhost:3002}
+      # Optional here: with it the panel tells a doctor in the bot that they were verified.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+    ports:
+      - '127.0.0.1:3002:3002'
+
+volumes:
+  pgdata:

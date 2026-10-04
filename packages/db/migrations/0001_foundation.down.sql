@@ -1,0 +1,10 @@
+drop table caregiver_relationships;
+drop table care_relationships;
+drop table platform_staff;
+drop table clinic_staff;
+drop table clinician_profiles;
+drop table patient_profiles;
+drop table users;
+drop table clinics;
+drop function forbid_modification();
+drop function set_updated_at();

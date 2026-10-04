@@ -1,0 +1,27 @@
+{
+  "name": "@medcourse/bot",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "build": "tsup",
+    "start": "node dist/main.cjs",
+    "typecheck": "tsc --noEmit",
+    "admin": "tsx --env-file-if-exists=../../.env src/admin/cli.ts"
+  },
+  "dependencies": {
+    "@medcourse/config": "workspace:^",
+    "@medcourse/db": "workspace:^",
+    "@medcourse/i18n": "workspace:^",
+    "@medcourse/logger": "workspace:^",
+    "@medcourse/report": "workspace:^",
+    "@medcourse/schedule": "workspace:^",
+    "@medcourse/telegram": "workspace:^",
+    "fastify": "^5.12.5",
+    "grammy": "^1.46.0"
+  },
+  "devDependencies": {
+    "pdf-lib": "^1.17.1"
+  }
+}

@@ -1,0 +1,7 @@
+node_modules
+dist
+coverage
+pnpm-lock.yaml
+docs/TZ.md
+packages/report/src/font.generated.ts
+packages/report/FONT-LICENSE.txt

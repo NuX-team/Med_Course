@@ -1,0 +1,21 @@
+{
+  "name": "@medcourse/panel",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "build": "tsup",
+    "start": "node dist/main.cjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@medcourse/config": "workspace:^",
+    "@medcourse/db": "workspace:^",
+    "@medcourse/i18n": "workspace:^",
+    "@medcourse/logger": "workspace:^",
+    "@medcourse/schedule": "workspace:^",
+    "fastify": "^5.12.5",
+    "grammy": "^1.46.0"
+  }
+}

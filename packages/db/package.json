@@ -1,0 +1,29 @@
+{
+  "name": "@medcourse/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./test/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "tsx --env-file-if-exists=../../.env src/cli.ts up",
+    "db:rollback": "tsx --env-file-if-exists=../../.env src/cli.ts down",
+    "db:status": "tsx --env-file-if-exists=../../.env src/cli.ts status",
+    "dev:db": "tsx --env-file-if-exists=../../.env src/dev-db.ts",
+    "db:backup": "tsx --env-file-if-exists=../../.env src/backup-cli.ts backup",
+    "db:restore": "tsx --env-file-if-exists=../../.env src/backup-cli.ts restore",
+    "db:restore-drill": "tsx --env-file-if-exists=../../.env src/backup-cli.ts drill"
+  },
+  "dependencies": {
+    "@medcourse/config": "workspace:^",
+    "@medcourse/schedule": "workspace:^",
+    "drizzle-orm": "^0.45.3",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "embedded-postgres": "16.14.0-beta.17"
+  }
+}
