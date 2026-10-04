@@ -355,3 +355,39 @@ describe('the backup key', () => {
     );
   });
 });
+
+describe('watching the service', () => {
+  const TOKEN = 'metrics-token-0123456789abcdef';
+
+  it('has no metrics token by default, and the panel does not trust a proxy', () => {
+    const config = loadConfig(base, options);
+    expect(config.metricsToken).toBeNull();
+    expect(config.panelTrustProxy).toBe(false);
+  });
+
+  it('reads the metrics token as it is, and only a token that is long enough and plain', () => {
+    expect(loadConfig({ ...base, METRICS_TOKEN: TOKEN }, options).metricsToken).toBe(TOKEN);
+    for (const weak of [
+      'short',
+      'has spaces in it, long enough to pass',
+      `${TOKEN}!`,
+      'x'.repeat(201),
+    ]) {
+      const { problems, message } = configError({ ...base, METRICS_TOKEN: weak });
+      expect(problems).toEqual([expect.stringContaining('METRICS_TOKEN')]);
+      expect(message).not.toContain(weak);
+    }
+  });
+
+  it('trusts a proxy only when told so in so many words', () => {
+    expect(loadConfig({ ...base, PANEL_TRUST_PROXY: 'true' }, options).panelTrustProxy).toBe(true);
+    expect(loadConfig({ ...base, PANEL_TRUST_PROXY: 'false' }, options).panelTrustProxy).toBe(
+      false,
+    );
+    for (const odd of ['1', 'yes', 'TRUE', 'on']) {
+      expect(configError({ ...base, PANEL_TRUST_PROXY: odd }).problems).toEqual([
+        expect.stringContaining('PANEL_TRUST_PROXY'),
+      ]);
+    }
+  });
+});

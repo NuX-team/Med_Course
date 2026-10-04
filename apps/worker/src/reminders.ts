@@ -8,9 +8,16 @@ import {
 } from '@medcourse/db';
 import type { Logger } from '@medcourse/logger';
 import { reminderMessage, replyMarkup, type TelegramApi } from '@medcourse/telegram';
+import type { Pacer } from './pacer';
 
-/** Reminders taken per round. With a round every two seconds this stays far under Telegram's limits. */
-export const OUTBOX_BATCH = 25;
+/** Reminders taken per round. Sending is paced (see `Pacer`), so a bigger batch only means fewer trips to the database. */
+export const OUTBOX_BATCH = 100;
+/** Sends in flight at once within a round: the rate is the pacer's, this only hides each answer's latency. */
+export const OUTBOX_CONCURRENCY = 10;
+/** Messages per second the bot sends in all. Telegram's limit is about 30. */
+export const SEND_RATE_PER_SECOND = 25;
+/** How long a burst of rounds may run before the loop's other duties get their turn. */
+export const OUTBOX_BURST_MS = 20_000;
 /** How long a reminder stays reserved for the worker that took it. */
 export const SEND_LOCK_MS = 60_000;
 /** How often unanswered doses past their deadline are turned into misses. */
@@ -114,6 +121,9 @@ export interface OutboxOptions {
   readonly now?: () => Date;
   readonly random?: () => number;
   readonly limit?: number;
+  /** Shared between rounds so the rate holds across them. Absent: sends are not spaced out. */
+  readonly pacer?: Pacer;
+  readonly concurrency?: number;
 }
 
 /**
@@ -133,7 +143,18 @@ export async function runOutbox(options: OutboxOptions): Promise<OutboxResult> {
     limit: options.limit ?? OUTBOX_BATCH,
     lockMs: SEND_LOCK_MS,
   });
-  for (const reminder of due) {
+  // Each reminder is its own piece of work: one recipient never has two in a round, so they can
+  // go side by side. The pacer, not the number of workers, decides how fast they leave.
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    for (let index = next++; index < due.length; index = next++) {
+      const reminder = due[index];
+      if (reminder !== undefined) {
+        await deliver(reminder);
+      }
+    }
+  };
+  const deliver = async (reminder: (typeof due)[number]): Promise<void> => {
     let outcome: ReminderOutcome;
     const decision = decide(reminder, now());
     if (!decision.send) {
@@ -142,10 +163,11 @@ export async function runOutbox(options: OutboxOptions): Promise<OutboxResult> {
       // Withdrawn between being taken and being sent: the course was paused or stopped, or its
       // plan was replaced. The row is already cancelled; there is nothing to send or record.
       result.cancelled += 1;
-      continue;
+      return;
     } else {
       const message = reminderMessage(reminder.recipient.locale, reminder);
       try {
+        await options.pacer?.take();
         await options.api.sendMessage(
           reminder.recipient.telegramUserId,
           message.text,
@@ -154,6 +176,14 @@ export async function runOutbox(options: OutboxOptions): Promise<OutboxResult> {
         outcome = { status: 'SENT', at: now() };
       } catch (error) {
         outcome = outcomeOfFailure(error, reminder, now(), options.random);
+        if (numberField(error, 'error_code') === 429) {
+          // Told to wait: everybody waits, not just this one.
+          const seconds = numberField(
+            (error as { parameters?: unknown }).parameters,
+            'retry_after',
+          );
+          options.pacer?.pauseFor((seconds === null || seconds <= 0 ? 5 : seconds) * 1000);
+        }
         // The code only: nothing about the message, the person or the request.
         options.logger.warn(
           {
@@ -174,18 +204,46 @@ export async function runOutbox(options: OutboxOptions): Promise<OutboxResult> {
         { err, notificationId: reminder.notificationId },
         'could not record a reminder',
       );
-      continue;
+      return;
     }
     if (outcome.status === 'SENT') result.sent += 1;
     else if (outcome.status === 'CANCELLED') result.cancelled += 1;
     else if (outcome.status === 'RETRY') result.retried += 1;
     else result.failed += 1;
-  }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(options.concurrency ?? OUTBOX_CONCURRENCY, due.length) }, worker),
+  );
 
   if (due.length > 0) {
     options.logger.debug(result, 'outbox round done');
   }
   return result;
+}
+
+/**
+ * Rounds back to back for as long as the queue has more than a round's worth waiting, up to a
+ * time budget. A peak (everyone's 08:00 at once) is thereby worked off as fast as the pacer lets
+ * it go, instead of one batch every two seconds; the rest of the worker's duties follow after.
+ */
+export async function runOutboxBurst(
+  options: OutboxOptions,
+  budgetMs: number = OUTBOX_BURST_MS,
+): Promise<OutboxResult> {
+  const total = { sent: 0, cancelled: 0, retried: 0, failed: 0 };
+  const limit = options.limit ?? OUTBOX_BATCH;
+  const startedAt = Date.now();
+  for (;;) {
+    const round = await runOutbox(options);
+    total.sent += round.sent;
+    total.cancelled += round.cancelled;
+    total.retried += round.retried;
+    total.failed += round.failed;
+    const handled = round.sent + round.cancelled + round.retried + round.failed;
+    if (handled < limit || Date.now() - startedAt >= budgetMs) {
+      return total;
+    }
+  }
 }
 
 export function missedSweepDue(lastRunAt: Date | null, now: Date): boolean {

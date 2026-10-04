@@ -20,6 +20,7 @@ import Fastify, {
   type FastifyRequest,
 } from 'fastify';
 import { STYLESHEET, html, join, page, type Child, type Markup } from './html';
+import { WindowLimiter } from './limiter';
 
 export interface PanelDeps {
   readonly logger: FastifyBaseLogger;
@@ -32,6 +33,13 @@ export interface PanelDeps {
   readonly notify?: (telegramUserId: number, text: string) => Promise<void>;
   /** Injected so tests control the clock. */
   readonly now?: () => Date;
+  /**
+   * Whether a reverse proxy stands in front: then the address of the caller is the one it reports
+   * (X-Forwarded-For). Without one that header is whatever the caller wrote, and is ignored.
+   */
+  readonly trustProxy?: boolean;
+  /** Tests raise these to drive hundreds of requests from one address; the defaults are for life. */
+  readonly limits?: { readonly requestsPerMinute: number; readonly signInsPerFiveMinutes: number };
 }
 
 export const SESSION_COOKIE = 'mc_panel';
@@ -40,6 +48,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const FORM_LIMIT_BYTES = 16 * 1024;
 /** The shape of a sign-in token: anything else is not looked up and never echoed into a page. */
 const LOGIN_TOKEN = /^[A-Za-z0-9_-]{43}$/;
+/** Requests one address may make in a minute, and attempts to sign in in five. */
+export const REQUESTS_PER_MINUTE = 240;
+export const SIGN_INS_PER_FIVE_MINUTES = 12;
 
 /** What may follow `?ok=` after a change: a fixed list, so nothing typed is ever echoed. */
 const FLASHES = {
@@ -111,6 +122,37 @@ export function buildPanel(deps: PanelDeps): FastifyInstance {
     logController,
     genReqId: () => randomUUID(),
     bodyLimit: FORM_LIMIT_BYTES,
+    trustProxy: deps.trustProxy ?? false,
+  });
+
+  const requests = new WindowLimiter(
+    deps.limits?.requestsPerMinute ?? REQUESTS_PER_MINUTE,
+    60_000,
+    () => now().getTime(),
+  );
+  const signIns = new WindowLimiter(
+    deps.limits?.signInsPerFiveMinutes ?? SIGN_INS_PER_FIVE_MINUTES,
+    300_000,
+    () => now().getTime(),
+  );
+  // Before anything else is done for a caller: too many requests from one address get a
+  // plain refusal and a time to come back, and cost the database nothing.
+  app.addHook('onRequest', async (request, reply) => {
+    const path = pathOf(request);
+    if (PROBE_PATHS.has(path) || path.startsWith('/static/')) {
+      return;
+    }
+    const verdicts = [
+      requests.check(request.ip),
+      ...(request.method === 'POST' && path === '/login' ? [signIns.check(request.ip)] : []),
+    ];
+    for (const verdict of verdicts) {
+      if (!verdict.allowed) {
+        reply.header('retry-after', String(Math.ceil(verdict.retryAfterMs / 1000)));
+        return publicPage(reply, 429, 'pn.tooManyRequests');
+      }
+    }
+    return undefined;
   });
 
   app.addHook('onResponse', (request, reply, done) => {

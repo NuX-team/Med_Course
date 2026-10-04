@@ -4,13 +4,20 @@ import {
   requireBotToken,
   type Config,
 } from '@medcourse/config';
-import { createDatabase, createRepositoryDeps } from '@medcourse/db';
+import {
+  createDatabase,
+  createRepositoryDeps,
+  createRepositories,
+  systemActor,
+} from '@medcourse/db';
 import { createLogger } from '@medcourse/logger';
 import type { TelegramApi } from '@medcourse/telegram';
 import { Api } from 'grammy';
 import { completionSweepDue, runCompletionSweep } from './completion';
 import { runAlerts } from './alerts';
 import { createHealthServer } from './health';
+import { renderMetrics } from './metrics';
+import { runIncidentNotices } from './notices';
 import { startLoop } from './loop';
 import {
   maintenanceDue,
@@ -20,7 +27,8 @@ import {
 } from './maintenance';
 import { privacySweepDue, runPrivacySweep } from './privacy';
 import { reconcileDue, runReconciliation } from './reconcile';
-import { missedSweepDue, runMissedSweep, runOutbox } from './reminders';
+import { Pacer } from './pacer';
+import { SEND_RATE_PER_SECOND, missedSweepDue, runMissedSweep, runOutboxBurst } from './reminders';
 
 const SERVICE = 'worker';
 const DEFAULT_HTTP_PORT = 3001;
@@ -49,6 +57,7 @@ async function main(): Promise<void> {
 
   const repositoryDeps = createRepositoryDeps(config.encryptionKeys);
   const api: Pick<TelegramApi, 'sendMessage'> = new Api(botToken);
+  const pacer = new Pacer(SEND_RATE_PER_SECOND);
   let lastMaintenanceAt: Date | null = null;
   let lastStartWindowSweepAt: Date | null = null;
   let lastMissedSweepAt: Date | null = null;
@@ -78,13 +87,19 @@ async function main(): Promise<void> {
         );
       }
       // Reminders next: they are the only job here that someone is waiting for.
-      await attempt('outbox', () => runOutbox({ orm: db.orm, repositoryDeps, api, logger }));
+      await attempt('outbox', () =>
+        runOutboxBurst({ orm: db.orm, repositoryDeps, api, logger, pacer }),
+      );
       if (missedSweepDue(lastMissedSweepAt, now)) {
         lastMissedSweepAt = now;
         await attempt('missed doses', () =>
           runMissedSweep({ orm: db.orm, repositoryDeps, now, logger }),
         );
       }
+      // The people who handle incidents are told of the ones opened by the reconciliation above.
+      await attempt('incident notices', () =>
+        runIncidentNotices({ orm: db.orm, repositoryDeps, api, now, logger }),
+      );
       // After the reminders and the misses: what the doctors are to be told about them.
       await attempt('alerts', () => runAlerts({ orm: db.orm, repositoryDeps, api, logger }));
       // After the misses: a course is closed only once every dose in it has an outcome.
@@ -124,6 +139,21 @@ async function main(): Promise<void> {
     db,
     loop,
     maxHeartbeatAgeMs: Math.max(TICK_INTERVAL_MS * 3, MIN_HEARTBEAT_LIMIT_MS),
+    ...(config.metricsToken === null
+      ? {}
+      : {
+          metrics: {
+            token: config.metricsToken,
+            render: async () =>
+              renderMetrics(
+                await createRepositories(db.orm, repositoryDeps).metrics.snapshot(
+                  systemActor('metrics page'),
+                  new Date(),
+                ),
+                { heartbeatAgeSeconds: loop.heartbeatAgeMs() / 1000 },
+              ),
+          },
+        }),
   });
 
   let shuttingDown = false;

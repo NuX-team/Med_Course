@@ -8,6 +8,7 @@ export * from './audit';
 export * from './backup';
 export * from './field-cipher';
 export * from './migrate';
+export * from './ops';
 export * from './orm';
 export * from './repositories';
 export * from './schema';

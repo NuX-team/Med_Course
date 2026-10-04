@@ -16,6 +16,7 @@ import {
 } from '@medcourse/db/testing';
 import { t } from '@medcourse/i18n';
 import { createLogger } from '@medcourse/logger';
+import { Pacer } from './pacer';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   MISSED_SWEEP_INTERVAL_MS,
@@ -103,6 +104,7 @@ const outbox = (now: Date, random = () => 0.5) =>
     logger,
     now: () => now,
     random,
+    concurrency: 1,
   });
 
 async function remindersOf(doseId: string) {
@@ -369,6 +371,72 @@ describe('a reminder that is no longer true is not sent', () => {
 });
 
 describe('when Telegram does not take the message', () => {
+  it('holds every sender back for as long as a rate limit says, not just the one that was refused', async () => {
+    await running();
+    await running();
+    let at = 1_000_000;
+    const waited: number[] = [];
+    const pacer = new Pacer(10, {
+      now: () => at,
+      sleep: (ms) => {
+        waited.push(ms);
+        return Promise.resolve();
+      },
+    });
+    telegram.failures = [{ error_code: 429, parameters: { retry_after: 7 } }];
+
+    const result = await runOutbox({
+      orm: testDatabase.db.orm,
+      repositoryDeps,
+      api: telegram,
+      logger,
+      now: () => afterFirstDose(0),
+      concurrency: 1,
+      pacer,
+    });
+
+    // One was refused and will be retried, one went out; and the next place in line is seven
+    // seconds away, whoever asks for it.
+    expect(result).toMatchObject({ sent: 1, retried: 1 });
+    waited.length = 0;
+    await pacer.take();
+    expect(waited).toHaveLength(1);
+    expect(waited[0]).toBeGreaterThanOrEqual(6_900);
+    // The second reminder waited out the pause and took the place after it, a tenth of a second on.
+    expect(waited[0]).toBeLessThanOrEqual(7_100);
+    at += 7_100;
+    waited.length = 0;
+    await pacer.take();
+    expect(waited[0]).toBeLessThanOrEqual(100);
+  });
+
+  it('is told five seconds to wait when Telegram does not say how long', async () => {
+    await running();
+    let at = 1_000_000;
+    const waited: number[] = [];
+    const pacer = new Pacer(10, {
+      now: () => at,
+      sleep: (ms) => {
+        waited.push(ms);
+        at += ms;
+        return Promise.resolve();
+      },
+    });
+    telegram.failures = [{ error_code: 429 }];
+
+    await runOutbox({
+      orm: testDatabase.db.orm,
+      repositoryDeps,
+      api: telegram,
+      logger,
+      now: () => afterFirstDose(0),
+      pacer,
+    });
+    await pacer.take();
+
+    expect(waited).toEqual([5_000]);
+  });
+
   it('waits as long as a rate limit says, then delivers', async () => {
     const c = await running();
     telegram.failures = [{ error_code: 429, parameters: { retry_after: 7 } }];

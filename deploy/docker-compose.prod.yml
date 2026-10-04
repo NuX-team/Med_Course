@@ -1,0 +1,183 @@
+name: medcourse-prod
+
+# One server, one command (docs/PILOT.md):
+#   docker compose --env-file .env.production -f deploy/docker-compose.prod.yml up -d --build
+#
+# Nothing but Caddy listens to the world (80 and 443). The database, the bot, the worker and the
+# panel are on a private network; Caddy hands the world only the Telegram webhook and the panel.
+
+x-env: &env
+  APP_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  ENCRYPTION_KEYS: ${ENCRYPTION_KEYS}
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+
+x-app: &app
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
+  # Liveness only: restarting a process will not bring a database back.
+  healthcheck:
+    test:
+      - CMD
+      - node
+      - -e
+      - fetch('http://127.0.0.1:'+process.env.HTTP_PORT+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))
+    interval: 10s
+    timeout: 3s
+    start_period: 15s
+    retries: 3
+  logging:
+    driver: json-file
+    options: { max-size: 20m, max-file: '5' }
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # The default of the image is the server's locale; the schema and the reports want UTF-8.
+      POSTGRES_INITDB_ARGS: --encoding=UTF8
+    # No `ports:` — the database is not reachable from outside the private network.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Applies the migrations and exits. The processes below start only after it succeeded, so a
+  # failed migration stops the deploy instead of starting a bot on a schema it does not know.
+  migrate:
+    build:
+      context: ..
+      args:
+        APP: bot
+    image: medcourse-bot:prod
+    restart: 'no'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *env
+    command: ['node', 'ops.cjs', 'migrate', 'up']
+
+  bot:
+    <<: *app
+    image: medcourse-bot:prod
+    environment:
+      <<: *env
+      HTTP_PORT: '3000'
+      TELEGRAM_MODE: webhook
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      PANEL_BASE_URL: ${PANEL_BASE_URL}
+
+  worker:
+    <<: *app
+    build:
+      context: ..
+      args:
+        APP: worker
+    image: medcourse-worker:prod
+    environment:
+      <<: *env
+      HTTP_PORT: '3001'
+      METRICS_TOKEN: ${METRICS_TOKEN}
+
+  panel:
+    <<: *app
+    build:
+      context: ..
+      args:
+        APP: panel
+    image: medcourse-panel:prod
+    environment:
+      <<: *env
+      HTTP_PORT: '3002'
+      PANEL_BASE_URL: ${PANEL_BASE_URL}
+      # Behind Caddy every request comes from Caddy; its header says who really called.
+      PANEL_TRUST_PROXY: 'true'
+
+  # A backup every day at the time BACKUP_AT says, the newest BACKUP_KEEP kept. The files are
+  # sealed with BACKUP_KEY; copy them off this server (docs/PILOT.md, "Резервные копии").
+  backup:
+    image: medcourse-bot:prod
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      <<: *env
+      BACKUP_KEY: ${BACKUP_KEY}
+      # The same container is where the operator runs `ops.cjs preflight --backups /backups` and
+      # `restore`/`drill` (it sees the backups and the BACKUP_KEY), so it gets the settings the
+      # preflight checks.
+      TELEGRAM_MODE: webhook
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      PANEL_BASE_URL: ${PANEL_BASE_URL}
+      PANEL_TRUST_PROXY: 'true'
+      METRICS_TOKEN: ${METRICS_TOKEN}
+      BACKUP_AT: ${BACKUP_AT:-03:00}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+    volumes:
+      - backups:/backups
+    # sh is in the alpine base. Sleeps until the next BACKUP_AT (server time, UTC), makes the
+    # backup, and tries again the same way tomorrow; a failed one is printed and does not stop the loop.
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        while true; do
+          now=$$(date +%s)
+          next=$$(date -d "$$(date +%F) $${BACKUP_AT}" +%s)
+          if [ "$$next" -le "$$now" ]; then next=$$((next + 86400)); fi
+          sleep $$((next - now))
+          node ops.cjs backup /backups --keep "$${BACKUP_KEEP}" || echo "BACKUP FAILED"
+        done
+    healthcheck:
+      # The newest file is not older than 26 hours (the preflight says the same).
+      test:
+        [
+          'CMD-SHELL',
+          'test -n "$$(find /backups -name "medcourse-*.mcbk" -mmin -1560 | head -n1)" || exit 1',
+        ]
+      interval: 1h
+      timeout: 10s
+      start_period: 26h
+      retries: 1
+    logging:
+      driver: json-file
+      options: { max-size: 5m, max-file: '3' }
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - bot
+      - panel
+    environment:
+      BOT_HOST: ${BOT_HOST}
+      PANEL_HOST: ${PANEL_HOST}
+      ACME_EMAIL: ${ACME_EMAIL}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  backups:
+  caddy_data:
+  caddy_config:

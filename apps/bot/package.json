@@ -8,7 +8,8 @@
     "build": "tsup",
     "start": "node dist/main.cjs",
     "typecheck": "tsc --noEmit",
-    "admin": "tsx --env-file-if-exists=../../.env src/admin/cli.ts"
+    "admin": "tsx --env-file-if-exists=../../.env src/admin/cli.ts",
+    "ops": "tsx --env-file-if-exists=../../.env src/ops/cli.ts --migrations ../../packages/db/migrations"
   },
   "dependencies": {
     "@medcourse/config": "workspace:^",

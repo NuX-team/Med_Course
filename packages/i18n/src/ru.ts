@@ -562,6 +562,7 @@ export const ru = {
   'pn.signedInAs': 'Вы вошли как {name}',
   'pn.signOut': 'Выйти',
   'pn.forbidden': 'Этот раздел вам недоступен.',
+  'pn.tooManyRequests': 'Слишком много запросов. Подождите немного и попробуйте снова.',
   'pn.notFound': 'Страница не найдена.',
   'pn.badRequest': 'Запрос не принят. Обновите страницу и попробуйте ещё раз.',
   'pn.home.intro': 'Разделы, доступные вашей роли:',
@@ -786,6 +787,7 @@ export const ru = {
   'past.med': '• {name}, {dose}: вовремя {taken} из {occurred}',
   'past.medNoDose': '• {name}: вовремя {taken} из {occurred}',
   'past.prn': '• {name} (по необходимости): отмечено раз — {count}',
+  'incident.notice': '⚠️ Инцидент: {what}.\n\nПодробности — в панели: отправьте боту /panel.',
   'error.generic': 'Что-то пошло не так. Попробуйте ещё раз или отправьте /start.',
   'error.unsupported': 'Я понимаю только текст и кнопки. Отправьте /menu, чтобы открыть меню.',
 } as const;

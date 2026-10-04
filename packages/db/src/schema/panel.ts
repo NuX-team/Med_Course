@@ -1,4 +1,4 @@
-import { index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { INCIDENT_KINDS, INCIDENT_STATUSES, INCIDENT_TYPES } from './enums';
 import { clinics, users } from './people';
 
@@ -55,6 +55,10 @@ export const incidents = pgTable(
     resolvedBy: uuid('resolved_by').references(() => users.id),
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),
     openedAt: timestamp('opened_at', { withTimezone: true }).notNull(),
+    /** How often the people who handle it were tried, when last, and when that counted as done. */
+    noticeTries: integer('notice_tries').notNull().default(0),
+    lastNoticeAt: timestamp('last_notice_at', { withTimezone: true }),
+    notifiedAt: timestamp('notified_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

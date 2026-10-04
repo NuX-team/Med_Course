@@ -1,0 +1,29 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# The bot: the world gets the Telegram webhook and nothing else. /healthz, /readyz and anything a
+# future version adds stay inside the private network.
+{$BOT_HOST} {
+	@webhook {
+		method POST
+		path /telegram/*
+	}
+	handle @webhook {
+		reverse_proxy bot:3000
+	}
+	handle {
+		respond 404
+	}
+}
+
+# The staff panel. Caddy adds X-Forwarded-For with the real address; the panel (PANEL_TRUST_PROXY)
+# uses it to tell callers apart for its limits.
+{$PANEL_HOST} {
+	encode zstd gzip
+	reverse_proxy panel:3002
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}

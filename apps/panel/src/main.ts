@@ -40,6 +40,7 @@ async function main(): Promise<void> {
     orm: db.orm,
     repositoryDeps: createRepositoryDeps(config.encryptionKeys),
     baseUrl,
+    trustProxy: config.panelTrustProxy,
     ...(api === null
       ? {}
       : {

@@ -1,17 +1,21 @@
-import { and, desc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import type { Actor } from '../access/actor';
 import { ForbiddenError } from '../access/errors';
 import { activeClinicStaff, activeTechAdmin, visiblePatients } from '../access/scopes';
 import { fieldAad } from '../field-cipher';
 import type { Executor } from '../orm';
 import {
+  clinicStaff,
   clinicianProfiles,
+  clinics,
   doctorAlerts,
   incidents,
   notifications,
   patientProfiles,
+  platformStaff,
   scheduledDoses,
   treatmentCourses,
+  users,
   type CourseStatus,
 } from '../schema';
 import type { RepositoryDeps } from './context';
@@ -21,6 +25,22 @@ export type IncidentType = (typeof incidents.$inferSelect)['type'];
 export type IncidentStatus = (typeof incidents.$inferSelect)['status'];
 
 export const MAX_RESOLUTION_NOTE_LENGTH = 500;
+/** How often a notice that could not be delivered to anyone is tried again, and how many times. */
+export const NOTICE_RETRY_MS = 2 * 60_000;
+export const MAX_NOTICE_TRIES = 6;
+
+/** An incident to be announced, and the people to announce it to. Nothing about a patient. */
+export interface IncidentNotice {
+  readonly incidentId: string;
+  readonly kind: IncidentKind;
+  readonly type: IncidentType;
+  readonly recipients: readonly {
+    readonly telegramUserId: number;
+    readonly locale: 'ru' | 'uz';
+  }[];
+  /** How many times this has been tried before (0 the first time). */
+  readonly tries: number;
+}
 const LIST_LIMIT = 100;
 /** How far behind a queue or a sweeper may fall before it is an incident rather than a moment. */
 export const LATE_AFTER_MS = 10 * 60_000;
@@ -243,6 +263,112 @@ export function createIncidentRepository(db: Executor, deps: RepositoryDeps) {
         });
         return true;
       });
+    },
+
+    /**
+     * Incidents nobody has been told about yet, with the people who handle each: technical
+     * administrators for the service's own, the staff of the clinic for a clinic's. Taken in
+     * order of age; an incident that could not be announced is offered again after a pause, up to
+     * a few times. System only. Reads, and records the attempt, in one transaction, so two
+     * workers do not announce the same incident twice.
+     */
+    async claimNotices(
+      actor: Actor,
+      input: { now: Date; limit: number },
+    ): Promise<IncidentNotice[]> {
+      if (actor.kind !== 'SYSTEM') {
+        throw new ForbiddenError('only the system announces incidents');
+      }
+      return db.transaction(async (tx) => {
+        const due = await tx
+          .select()
+          .from(incidents)
+          .where(
+            and(
+              eq(incidents.status, 'OPEN'),
+              isNull(incidents.notifiedAt),
+              lt(incidents.noticeTries, MAX_NOTICE_TRIES),
+              or(
+                isNull(incidents.lastNoticeAt),
+                lte(incidents.lastNoticeAt, new Date(input.now.getTime() - NOTICE_RETRY_MS)),
+              ),
+            ),
+          )
+          .orderBy(asc(incidents.openedAt), asc(incidents.id))
+          .limit(input.limit)
+          .for('update', { skipLocked: true });
+
+        const notices: IncidentNotice[] = [];
+        for (const incident of due) {
+          const people =
+            incident.kind === 'TECHNICAL'
+              ? await tx
+                  .select({ telegramUserId: users.telegramUserId, locale: users.locale })
+                  .from(platformStaff)
+                  .innerJoin(users, eq(users.id, platformStaff.userId))
+                  .where(
+                    and(
+                      eq(platformStaff.role, 'TECH_ADMIN'),
+                      eq(platformStaff.status, 'ACTIVE'),
+                      eq(users.status, 'ACTIVE'),
+                    ),
+                  )
+              : incident.clinicId === null
+                ? []
+                : await tx
+                    .select({ telegramUserId: users.telegramUserId, locale: users.locale })
+                    .from(clinicStaff)
+                    .innerJoin(users, eq(users.id, clinicStaff.userId))
+                    .innerJoin(clinics, eq(clinics.id, clinicStaff.clinicId))
+                    .where(
+                      and(
+                        eq(clinicStaff.clinicId, incident.clinicId),
+                        eq(clinicStaff.status, 'ACTIVE'),
+                        eq(clinics.status, 'ACTIVE'),
+                        eq(users.status, 'ACTIVE'),
+                      ),
+                    );
+          await tx
+            .update(incidents)
+            .set({ noticeTries: incident.noticeTries + 1, lastNoticeAt: input.now })
+            .where(eq(incidents.id, incident.id));
+          notices.push({
+            incidentId: incident.id,
+            kind: incident.kind,
+            type: incident.type,
+            recipients: people,
+            tries: incident.noticeTries,
+          });
+        }
+        return notices;
+      });
+    },
+
+    /**
+     * Writes down how an announcement went. Done when it reached at least one person, when there
+     * is nobody to tell (the panel is then the only place), or when it has been tried as often as
+     * it will be; otherwise it is left to be offered again. System only.
+     */
+    async finishNotice(
+      actor: Actor,
+      input: { incidentId: string; reached: number; recipients: number; now: Date },
+    ): Promise<boolean> {
+      if (actor.kind !== 'SYSTEM') {
+        throw new ForbiddenError('only the system announces incidents');
+      }
+      const [row] = await db
+        .select({ tries: incidents.noticeTries })
+        .from(incidents)
+        .where(eq(incidents.id, input.incidentId));
+      const done =
+        input.reached > 0 || input.recipients === 0 || (row?.tries ?? 0) >= MAX_NOTICE_TRIES;
+      if (done) {
+        await db
+          .update(incidents)
+          .set({ notifiedAt: input.now })
+          .where(and(eq(incidents.id, input.incidentId), isNull(incidents.notifiedAt)));
+      }
+      return done;
     },
 
     /**

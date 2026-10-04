@@ -28,7 +28,8 @@
     "admin": "pnpm --filter @medcourse/bot admin",
     "db:backup": "pnpm --filter @medcourse/db db:backup",
     "db:restore": "pnpm --filter @medcourse/db db:restore",
-    "db:restore-drill": "pnpm --filter @medcourse/db db:restore-drill"
+    "db:restore-drill": "pnpm --filter @medcourse/db db:restore-drill",
+    "ops": "pnpm --filter @medcourse/bot ops"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

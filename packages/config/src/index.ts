@@ -130,6 +130,11 @@ const buildEnvSchema = (receivesUpdates: boolean) =>
         .string()
         .refine(isHttpUrl, { message: 'must be an http(s):// origin with no path' })
         .optional(),
+      PANEL_TRUST_PROXY: z.enum(['true', 'false']).optional(),
+      METRICS_TOKEN: z
+        .string()
+        .regex(/^[A-Za-z0-9_-]{24,200}$/, 'must be 24-200 characters from A-Z a-z 0-9 _ -')
+        .optional(),
       BACKUP_KEY: z
         .string()
         .superRefine((value, ctx) => {
@@ -228,6 +233,10 @@ export interface Config {
   readonly panelBaseUrl: string | null;
   /** What backups are encrypted with: a secret of its own, apart from the field keys. */
   readonly backupKey: EncryptionKey | null;
+  /** Whoever holds this may read the worker's metrics page; null: the page does not exist. */
+  readonly metricsToken: string | null;
+  /** The panel stands behind a reverse proxy that reports the caller's address. */
+  readonly panelTrustProxy: boolean;
 }
 
 export interface LoadConfigOptions {
@@ -306,6 +315,8 @@ export function loadConfig(env: Env, options: LoadConfigOptions): Config {
     telegram,
     panelBaseUrl: values.PANEL_BASE_URL?.replace(/\/+$/, '') ?? null,
     backupKey: backupKeyOf(values.BACKUP_KEY),
+    metricsToken: values.METRICS_TOKEN ?? null,
+    panelTrustProxy: values.PANEL_TRUST_PROXY === 'true',
   };
 }
 

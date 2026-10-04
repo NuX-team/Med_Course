@@ -14,18 +14,16 @@ import {
   clinicStaff,
   clinicianProfiles,
   clinics,
-  doctorAlerts,
-  notifications,
   panelLogins,
   panelSessions,
   patientProfiles,
-  scheduledDoses,
   treatmentCourses,
   users,
   type CourseStatus,
 } from '../schema';
 import type { RepositoryDeps } from './context';
 import type { StaffActor } from './incidents';
+import { collectStats, type TechStats } from './stats';
 
 /** A sign-in link is for the next few minutes, not for the chat history. */
 export const PANEL_LOGIN_TTL_MS = 5 * 60_000;
@@ -89,35 +87,6 @@ export interface ClinicOverview {
     readonly lastName: string;
     readonly verificationStatus: 'PENDING' | 'VERIFIED' | 'REVOKED';
   }[];
-}
-
-/** One line of a queue: how many rows are in each state, and how late the oldest waiting one is. */
-export interface QueueStats {
-  readonly byStatus: Readonly<Record<string, number>>;
-  /** Waiting rows whose time has passed. */
-  readonly overdue: number;
-  /** How long the most overdue waiting row has been due, in seconds; null when none is. */
-  readonly oldestOverdueSeconds: number | null;
-  /** Rows taken by a worker whose reservation has run out. */
-  readonly stuck: number;
-  /** Failures in the last 24 hours, by machine code. */
-  readonly failures: Readonly<Record<string, number>>;
-}
-
-/** The technical panel: numbers and codes, nothing about any person or prescription. */
-export interface TechStats {
-  readonly reminders: QueueStats & {
-    /** Seconds between "due" and "sent" over the last 24 hours. */
-    readonly delaySecondsP50: number | null;
-    readonly delaySecondsP95: number | null;
-    readonly sentInDay: number;
-  };
-  readonly alerts: QueueStats;
-  /** Doses of running courses past their deadline that the sweeper has not recorded yet. */
-  readonly unsweptDoses: number;
-  readonly courses: Readonly<Record<string, number>>;
-  readonly doctors: Readonly<Record<string, number>>;
-  readonly users: number;
 }
 
 export interface AuditRow {
@@ -217,45 +186,6 @@ export function createPanelRepository(db: Executor, deps: RepositoryDeps) {
     if (allowed[0]?.ok !== true) {
       throw new ForbiddenError('no longer a member of this clinic’s staff');
     }
-  };
-
-  const queueStats = async (
-    executor: Executor,
-    table: typeof notifications | typeof doctorAlerts,
-    now: Date,
-  ): Promise<QueueStats> => {
-    const iso = now.toISOString();
-    const byStatus = await executor
-      .select({ status: table.status, n: sql<number>`count(*)::int` })
-      .from(table)
-      .groupBy(table.status);
-    const [waiting] = await executor
-      .select({
-        overdue: sql<number>`count(*)::int`,
-        oldest: sql<
-          number | null
-        >`extract(epoch from ${iso}::timestamptz - min(${table.dueAt}))::int`,
-      })
-      .from(table)
-      .where(and(eq(table.status, 'QUEUED'), lt(table.dueAt, now)));
-    const [stuck] = await executor
-      .select({ n: sql<number>`count(*)::int` })
-      .from(table)
-      .where(and(eq(table.status, 'SENDING'), lt(table.lockedUntil, now)));
-    const failures = await executor
-      .select({ code: table.lastError, n: sql<number>`count(*)::int` })
-      .from(table)
-      .where(
-        and(eq(table.status, 'FAILED'), gt(table.updatedAt, new Date(now.getTime() - 86_400_000))),
-      )
-      .groupBy(table.lastError);
-    return {
-      byStatus: Object.fromEntries(byStatus.map((row) => [row.status, row.n])),
-      overdue: waiting?.overdue ?? 0,
-      oldestOverdueSeconds: (waiting?.overdue ?? 0) > 0 ? (waiting?.oldest ?? null) : null,
-      stuck: stuck?.n ?? 0,
-      failures: Object.fromEntries(failures.map((row) => [row.code ?? 'UNKNOWN', row.n])),
-    };
   };
 
   return {
@@ -491,55 +421,7 @@ export function createPanelRepository(db: Executor, deps: RepositoryDeps) {
       const admin = requireTechAdmin(actor);
       return db.transaction(async (tx) => {
         await assertTechAdmin(tx, admin.userId);
-        const dayAgo = new Date(now.getTime() - 86_400_000);
-        const [delay] = await tx
-          .select({
-            sent: sql<number>`count(*)::int`,
-            p50: sql<number | string | null>`percentile_cont(0.5) within group (
-              order by extract(epoch from ${notifications.sentAt} - ${notifications.dueAt}))`,
-            p95: sql<number | string | null>`percentile_cont(0.95) within group (
-              order by extract(epoch from ${notifications.sentAt} - ${notifications.dueAt}))`,
-          })
-          .from(notifications)
-          .where(and(eq(notifications.status, 'SENT'), gt(notifications.sentAt, dayAgo)));
-        const [unswept] = await tx
-          .select({ n: sql<number>`count(*)::int` })
-          .from(scheduledDoses)
-          .innerJoin(treatmentCourses, eq(treatmentCourses.id, scheduledDoses.courseId))
-          .where(
-            and(
-              eq(treatmentCourses.status, 'ACTIVE'),
-              sql`${scheduledDoses.status} in ('SCHEDULED', 'NOTIFIED', 'SNOOZED')`,
-              lt(scheduledDoses.deadlineAt, now),
-            ),
-          );
-        const courses = await tx
-          .select({ status: treatmentCourses.status, n: sql<number>`count(*)::int` })
-          .from(treatmentCourses)
-          .groupBy(treatmentCourses.status);
-        const doctors = await tx
-          .select({
-            status: clinicianProfiles.verificationStatus,
-            n: sql<number>`count(*)::int`,
-          })
-          .from(clinicianProfiles)
-          .groupBy(clinicianProfiles.verificationStatus);
-        const [people] = await tx.select({ n: sql<number>`count(*)::int` }).from(users);
-        const round = (value: number | string | null | undefined): number | null =>
-          value === null || value === undefined ? null : Math.round(Number(value));
-        return {
-          reminders: {
-            ...(await queueStats(tx, notifications, now)),
-            delaySecondsP50: round(delay?.p50),
-            delaySecondsP95: round(delay?.p95),
-            sentInDay: delay?.sent ?? 0,
-          },
-          alerts: await queueStats(tx, doctorAlerts, now),
-          unsweptDoses: unswept?.n ?? 0,
-          courses: Object.fromEntries(courses.map((row) => [row.status, row.n])),
-          doctors: Object.fromEntries(doctors.map((row) => [row.status, row.n])),
-          users: people?.n ?? 0,
-        };
+        return collectStats(tx, now);
       });
     },
 

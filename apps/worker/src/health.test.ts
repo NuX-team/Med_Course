@@ -74,3 +74,78 @@ describe('worker health server', () => {
     expect(await get('/metrics')).toEqual({ status: 404, body: { error: 'not_found' } });
   });
 });
+
+describe('GET /metrics', () => {
+  const TOKEN = 'metrics-token-0123456789abcdef';
+
+  async function startWithMetrics(
+    render: () => Promise<string>,
+    token: string | null = TOKEN,
+  ): Promise<void> {
+    const server = createHealthServer({
+      logger,
+      db: { ping: () => Promise.resolve() },
+      loop: { heartbeatAgeMs: () => 0 },
+      maxHeartbeatAgeMs: 10_000,
+      ...(token === null ? {} : { metrics: { token, render } }),
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    baseUrl = `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`;
+    close = () =>
+      new Promise((resolve) => {
+        server.close(() => {
+          resolve();
+        });
+      });
+  }
+
+  const ask = (authorization?: string) =>
+    fetch(`${baseUrl}/metrics`, authorization === undefined ? {} : { headers: { authorization } });
+
+  it('gives the numbers to whoever holds the token, as plain text that is not kept', async () => {
+    await startWithMetrics(() => Promise.resolve('medcourse_up 1\n'));
+    const response = await ask(`Bearer ${TOKEN}`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('text/plain; version=0.0.4; charset=utf-8');
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(await response.text()).toBe('medcourse_up 1\n');
+  });
+
+  it('refuses anyone else, and says nothing about what is behind the door', async () => {
+    let rendered = 0;
+    await startWithMetrics(() => {
+      rendered += 1;
+      return Promise.resolve('secret numbers');
+    });
+    for (const header of [
+      undefined,
+      '',
+      'Bearer',
+      'Bearer ',
+      `Bearer ${TOKEN.slice(0, -1)}`,
+      `Bearer ${TOKEN}x`,
+      `Bearer ${TOKEN.toUpperCase()}`,
+      `Basic ${TOKEN}`,
+      TOKEN,
+    ]) {
+      const response = await ask(header);
+      expect(response.status, String(header)).toBe(401);
+      expect(response.headers.get('www-authenticate')).toBe('Bearer');
+      expect(await response.text()).toBe('');
+    }
+    expect(rendered).toBe(0);
+  });
+
+  it('does not exist when no token is configured', async () => {
+    await startWithMetrics(() => Promise.resolve('x'), null);
+    expect((await ask('Bearer anything')).status).toBe(404);
+    expect((await ask()).status).toBe(404);
+  });
+
+  it('answers 503 with no detail when the numbers cannot be read', async () => {
+    await startWithMetrics(() => Promise.reject(new Error('postgres://user:pw@db/x')));
+    const response = await ask(`Bearer ${TOKEN}`);
+    expect(response.status).toBe(503);
+    expect(await response.text()).not.toContain('postgres');
+  });
+});

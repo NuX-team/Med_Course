@@ -75,6 +75,8 @@ services:
       HTTP_PORT: '3001'
       # The worker sends the reminders, so it needs the same bot token as the bot.
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      # Blank means there is no /metrics page.
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
     ports:
       - '127.0.0.1:3001:3001'
 
@@ -91,6 +93,7 @@ services:
       ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:-dev1:V4utw/HLyM+4n8fMSsURXViNYbg7eI5EGnlVKqaLGa0=}
       HTTP_PORT: '3002'
       PANEL_BASE_URL: ${PANEL_BASE_URL:-http://localhost:3002}
+      PANEL_TRUST_PROXY: ${PANEL_TRUST_PROXY:-}
       # Optional here: with it the panel tells a doctor in the bot that they were verified.
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
     ports:

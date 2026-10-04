@@ -19,7 +19,7 @@ import { t } from '@medcourse/i18n';
 import { createLogger } from '@medcourse/logger';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { SESSION_COOKIE, buildPanel } from './app';
+import { REQUESTS_PER_MINUTE, SESSION_COOKIE, SIGN_INS_PER_FIVE_MINUTES, buildPanel } from './app';
 
 /**
  * The staff panel over HTTP, against a real database. The acceptance rule of the stage is the
@@ -59,6 +59,8 @@ function build(options: { baseUrl?: string; stream?: { write(line: string): void
     orm: testDatabase.db.orm,
     repositoryDeps,
     baseUrl: options.baseUrl ?? BASE_URL,
+    // These tests drive hundreds of requests from one address; the limits have tests of their own.
+    limits: { requestsPerMinute: 1_000_000, signInsPerFiveMinutes: 1_000_000 },
     notify: (telegramUserId, text) => {
       if (failNotify) {
         return Promise.reject(new Error('https://api.telegram.org/bot123:secret/sendMessage'));
@@ -270,6 +272,131 @@ describe('probes and plumbing', () => {
       ...form({ t: 'x'.repeat(20_000) }),
     });
     expect(huge.statusCode).toBe(413);
+  });
+});
+
+describe('too many requests', () => {
+  /** A panel with the limits it has in life, and a clock the test moves. */
+  function strict(options: { trustProxy?: boolean } = {}) {
+    return buildPanel({
+      logger,
+      db: testDatabase.db,
+      orm: testDatabase.db.orm,
+      repositoryDeps,
+      baseUrl: BASE_URL,
+      now: () => clock,
+      ...options,
+    });
+  }
+  const from = (panel: FastifyInstance, address: string, url = '/login', headers = {}) =>
+    panel.inject({ method: 'GET', url, remoteAddress: address, headers });
+
+  it('refuses an address that asks too often, with a time to come back, and answers it again later', async () => {
+    const panel = strict();
+    for (let index = 0; index < REQUESTS_PER_MINUTE; index += 1) {
+      expect((await from(panel, '203.0.113.5')).statusCode).toBe(200);
+    }
+
+    const refused = await from(panel, '203.0.113.5');
+    expect(refused.statusCode).toBe(429);
+    expect(refused.headers['retry-after']).toBe('60');
+    expect(refused.body).toContain(t('ru', 'pn.tooManyRequests'));
+    expect(refused.body).toContain(t('uz', 'pn.tooManyRequests'));
+    // Somebody else is not held back by it.
+    expect((await from(panel, '203.0.113.6')).statusCode).toBe(200);
+
+    clock = new Date(NOW.getTime() + 60_000);
+    expect((await from(panel, '203.0.113.5')).statusCode).toBe(200);
+    clock = NOW;
+    await panel.close();
+  });
+
+  it('does not count the probes of the platform or the stylesheet, and never refuses them', async () => {
+    const panel = strict();
+    for (let index = 0; index < REQUESTS_PER_MINUTE + 20; index += 1) {
+      expect((await from(panel, '203.0.113.7', '/healthz')).statusCode).toBe(200);
+      expect((await from(panel, '203.0.113.7', '/static/panel.css')).statusCode).toBe(200);
+    }
+    expect((await from(panel, '203.0.113.7')).statusCode).toBe(200);
+    await panel.close();
+  });
+
+  it('allows a few attempts to sign in, then refuses the address however slowly the rest goes on', async () => {
+    const panel = strict();
+    const attempt = (address: string) =>
+      panel.inject({
+        method: 'POST',
+        url: '/login',
+        remoteAddress: address,
+        ...form({ t: 'A'.repeat(43) }),
+      });
+    for (let index = 0; index < SIGN_INS_PER_FIVE_MINUTES; index += 1) {
+      expect((await attempt('203.0.113.8')).statusCode).toBe(400);
+    }
+
+    const refused = await attempt('203.0.113.8');
+    expect(refused.statusCode).toBe(429);
+    expect(refused.headers['set-cookie']).toBeUndefined();
+    // Looking at pages is a different budget from trying links.
+    expect((await from(panel, '203.0.113.8')).statusCode).toBe(200);
+    expect((await attempt('203.0.113.9')).statusCode).toBe(400);
+
+    clock = new Date(NOW.getTime() + 5 * 60_000);
+    expect((await attempt('203.0.113.8')).statusCode).toBe(400);
+    clock = NOW;
+    await panel.close();
+  });
+
+  it('even a right link is not tried once the address is over its limit', async () => {
+    const panel = strict();
+    const admin = await techAdmin();
+    for (let index = 0; index < SIGN_INS_PER_FIVE_MINUTES; index += 1) {
+      await panel.inject({
+        method: 'POST',
+        url: '/login',
+        remoteAddress: '203.0.113.10',
+        ...form({ t: 'B'.repeat(43) }),
+      });
+    }
+    const token = await linkFor(admin);
+
+    const refused = await panel.inject({
+      method: 'POST',
+      url: '/login',
+      remoteAddress: '203.0.113.10',
+      ...form({ t: token }),
+    });
+
+    expect(refused.statusCode).toBe(429);
+    // The link was not spent by it: from another address it still works.
+    const later = await panel.inject({
+      method: 'POST',
+      url: '/login',
+      remoteAddress: '203.0.113.11',
+      ...form({ t: token }),
+    });
+    expect(later.statusCode).toBe(303);
+    await panel.close();
+  });
+
+  it('takes the address from the proxy only when told a proxy stands in front', async () => {
+    const direct = strict();
+    const behind = strict({ trustProxy: true });
+    const forwarded = (panel: FastifyInstance, address: string) =>
+      from(panel, '10.0.0.1', '/login', { 'x-forwarded-for': address });
+
+    for (let index = 0; index < REQUESTS_PER_MINUTE; index += 1) {
+      await forwarded(direct, `198.51.100.${String(index % 200)}`);
+      await forwarded(behind, '198.51.100.1');
+    }
+
+    // Without a proxy the header is whatever the caller wrote: one address, one budget.
+    expect((await forwarded(direct, '198.51.100.250')).statusCode).toBe(429);
+    // Behind a proxy the header is the caller: that one is spent, and a different one is not.
+    expect((await forwarded(behind, '198.51.100.1')).statusCode).toBe(429);
+    expect((await forwarded(behind, '198.51.100.2')).statusCode).toBe(200);
+    await direct.close();
+    await behind.close();
   });
 });
 

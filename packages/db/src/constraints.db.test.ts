@@ -1234,6 +1234,36 @@ describe('privacy', () => {
   });
 });
 
+describe('announcing an incident', () => {
+  const incident = () => sql()`
+    insert into incidents (kind, type, dedupe_key, opened_at)
+    values ('TECHNICAL', 'QUEUE_LATE', ${randomUUID()}, now())
+    returning id`;
+
+  it('counts the tries within a sane range', async () => {
+    const [row] = await incident();
+    const set = (tries: number) =>
+      sql()`update incidents set notice_tries = ${tries} where id = ${row?.id as string}`;
+    await set(0);
+    await set(100);
+    for (const wrong of [-1, 101]) {
+      expect(await violation(set(wrong)), String(wrong)).toEqual({
+        code: CHECK,
+        constraint: 'incidents_notice_tries_chk',
+      });
+    }
+  });
+
+  it('starts as not yet announced', async () => {
+    const [row] = await incident();
+    const [stored] = await sql()<
+      { notice_tries: number; notified_at: Date | null; last_notice_at: Date | null }[]
+    >`
+      select notice_tries, notified_at, last_notice_at from incidents where id = ${row?.id as string}`;
+    expect(stored).toEqual({ notice_tries: 0, notified_at: null, last_notice_at: null });
+  });
+});
+
 describe('a report handed out as a file', () => {
   const handed = (o: { course?: string; by?: string; kind?: string; format?: string }) => sql()`
     insert into course_exports (course_id, requested_by, actor_kind, format, created_at)

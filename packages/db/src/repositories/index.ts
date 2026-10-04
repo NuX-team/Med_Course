@@ -13,6 +13,7 @@ import { createHistoryRepository } from './history';
 import { createIncidentRepository } from './incidents';
 import { createInvitationRepository } from './invitations';
 import { createLifecycleRepository } from './lifecycle';
+import { createMetricsRepository } from './metrics';
 import { createOutboxRepository } from './outbox';
 import { createPanelRepository } from './panel';
 import { createPatientRepository } from './patients';
@@ -47,6 +48,8 @@ export * from './incidents';
 export * from './invitations';
 export type { Recipient } from './layout';
 export * from './lifecycle';
+export * from './metrics';
+export type { OpenIncidents, QueueStats, TechStats } from './stats';
 export * from './outbox';
 export * from './panel';
 export * from './patients';
@@ -86,6 +89,7 @@ export function createRepositories(db: Executor, deps: RepositoryDeps) {
     history: createHistoryRepository(db, deps),
     incidents: createIncidentRepository(db, deps),
     panel: createPanelRepository(db, deps),
+    metrics: createMetricsRepository(db),
     privacy: createPrivacyRepository(db, deps),
     prn: createPrnRepository(db),
     telegram: createTelegramRepository(db),

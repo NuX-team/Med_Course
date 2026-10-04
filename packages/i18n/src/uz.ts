@@ -572,6 +572,7 @@ export const uz: Record<MessageKey, string> = {
   'pn.signedInAs': 'Siz {name} sifatida kirdingiz',
   'pn.signOut': 'Chiqish',
   'pn.forbidden': 'Bu boʻlim sizga ochiq emas.',
+  'pn.tooManyRequests': 'Juda koʻp soʻrov. Biroz kutib, qayta urinib koʻring.',
   'pn.notFound': 'Sahifa topilmadi.',
   'pn.badRequest': 'Soʻrov qabul qilinmadi. Sahifani yangilab, qaytadan urinib koʻring.',
   'pn.home.intro': 'Rolingizga ochiq boʻlimlar:',
@@ -798,6 +799,7 @@ export const uz: Record<MessageKey, string> = {
   'past.med': '• {name}, {dose}: vaqtida {occurred} tadan {taken} tasi',
   'past.medNoDose': '• {name}: vaqtida {occurred} tadan {taken} tasi',
   'past.prn': '• {name} (zaruratga qarab): belgilangan soni — {count}',
+  'incident.notice': '⚠️ Hodisa: {what}.\n\nBatafsil — panelda: botga /panel yuboring.',
   'error.generic': 'Nimadir xato ketdi. Yana urinib koʻring yoki /start yuboring.',
   'error.unsupported':
     'Men faqat matn va tugmalarni tushunaman. Menyuni ochish uchun /menu yuboring.',
