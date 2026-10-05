@@ -9,6 +9,7 @@ import {
   type Callback,
   type MenuTarget,
 } from './callbacks';
+import { AdminFlow } from './admin';
 import { CaregiverFlow } from './caregiver';
 import { CourseFlow } from './course';
 import { CourseControlFlow, isControlAction } from './course-control';
@@ -104,6 +105,10 @@ export async function handleUpdate(context: HandlerContext, update: Update): Pro
     user?.status === 'ACTIVE' && profile !== null
       ? (await repos.caregivers.wards({ kind: 'CAREGIVER', userId: user.id })).length > 0
       : false;
+  const admin =
+    user?.status === 'ACTIVE' && profile !== null
+      ? await repos.platform.isTechAdmin(user.id)
+      : false;
   const standing =
     user?.status === 'ACTIVE' && profile !== null
       ? await repos.privacy.standing(system, user.id)
@@ -123,6 +128,7 @@ export async function handleUpdate(context: HandlerContext, update: Update): Pro
     profile,
     clinician,
     watching,
+    admin,
     conversation,
     talk,
     locale: user?.status === 'ACTIVE' ? user.locale : isLocale(chosen) ? chosen : null,
@@ -163,6 +169,7 @@ class Flow {
   readonly #invite: InviteFlow;
   readonly #caregiver: CaregiverFlow;
   readonly #doctor: DoctorFlow;
+  readonly #admin: AdminFlow;
   readonly #course: CourseFlow;
   readonly #control: CourseControlFlow;
   readonly #patientCourse: PatientCourseFlow;
@@ -183,6 +190,7 @@ class Flow {
     this.#invite = new InviteFlow(this.#chat);
     this.#caregiver = new CaregiverFlow(this.#chat);
     this.#doctor = new DoctorFlow(this.#chat);
+    this.#admin = new AdminFlow(this.#chat);
     this.#course = new CourseFlow(this.#chat);
     this.#control = new CourseControlFlow(this.#chat, this.#course);
     this.#patientCourse = new PatientCourseFlow(this.#chat);
@@ -208,6 +216,13 @@ class Flow {
         return [this.#menuMessage()];
       case 'doctor':
         return this.#s.profile === null ? this.#start() : this.#doctor.section();
+      case 'admin':
+        // Not an administrator: the command does not exist, as with /panel.
+        return this.#s.profile === null
+          ? this.#start()
+          : this.#s.admin
+            ? this.#admin.section()
+            : [this.#menuMessage()];
       case 'help':
         return [this.#send(this.#chat.say('help.text'))];
       case 'panel':
@@ -248,6 +263,7 @@ class Flow {
   async onText(text: string): Promise<Reply[]> {
     const handled =
       (await this.#doctor.onText(text)) ??
+      (await this.#admin.onText(text)) ??
       (await this.#course.onText(text)) ??
       (await this.#dose.onText(text));
     if (handled !== null) {
@@ -334,6 +350,10 @@ class Flow {
         return callback.action === 'courses'
           ? this.#course.list()
           : this.#doctor.onAction(callback.action);
+      case 'admin':
+        return this.#admin.onAction(callback.action);
+      case 'adminPerson':
+        return this.#admin.onPerson(callback.action, callback.userId);
       case 'doctorDecision':
         return this.#doctor.onDecision(callback.relationshipId, callback.accept);
       case 'revokeInvitation':
@@ -619,6 +639,8 @@ class Flow {
         return this.#doctor.section();
       case 'wards':
         return this.#caregiver.wards();
+      case 'admin':
+        return this.#admin.section();
     }
   }
 
@@ -776,6 +798,8 @@ class Flow {
       ...(this.#s.watching ? [row('menu.wards', 'wards')] : []),
       row('menu.settings', 'settings'),
       row('menu.doctor', 'doctor'),
+      // Only for an active administrator: nobody else is told the section exists.
+      ...(this.#s.admin ? [row('admin.menu', 'admin')] : []),
     ];
   }
 

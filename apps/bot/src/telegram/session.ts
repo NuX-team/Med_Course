@@ -72,6 +72,8 @@ export interface Session {
   readonly clinician: ClinicianSummary | null;
   /** Whether a patient has allowed this person to watch over their course. */
   readonly watching: boolean;
+  /** Whether this person is an active technical administrator: the menu then offers the section. */
+  readonly admin: boolean;
   /** The onboarding conversation, if that is what they are in the middle of. */
   readonly conversation: {
     readonly step: OnboardingStep;

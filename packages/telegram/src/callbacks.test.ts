@@ -24,7 +24,7 @@ const everyCallback: Callback[] = [
   { kind: 'timezoneConfirm' },
   { kind: 'timezoneOther' },
   ...TIMEZONE_CHOICES.map((choice): Callback => ({ kind: 'timezone', code: choice.code })),
-  ...(['home', 'course', 'today', 'history', 'settings', 'doctor', 'wards'] as const).map(
+  ...(['home', 'course', 'today', 'history', 'settings', 'doctor', 'wards', 'admin'] as const).map(
     (target): Callback => ({ kind: 'menu', target }),
   ),
   { kind: 'settingsLanguage' },
@@ -37,6 +37,12 @@ const everyCallback: Callback[] = [
   ...(
     ['register', 'invite', 'skipLabel', 'patients', 'invitations', 'newCourse', 'courses'] as const
   ).map((action): Callback => ({ kind: 'doctor', action })),
+  ...(
+    ['applications', 'doctors', 'stats', 'incidents', 'admins', 'addAdmin', 'cancel'] as const
+  ).map((action): Callback => ({ kind: 'admin', action })),
+  ...(['open', 'verify', 'revokeAsk', 'revoke', 'revokeAdminAsk', 'revokeAdmin'] as const).map(
+    (action): Callback => ({ kind: 'adminPerson', action, userId: SOME_ID }),
+  ),
   { kind: 'doctorDecision', relationshipId: SOME_ID, accept: true },
   { kind: 'doctorDecision', relationshipId: SOME_ID, accept: false },
   { kind: 'revokeInvitation', invitationId: SOME_ID },
@@ -369,5 +375,37 @@ describe('the time zones on offer', () => {
     expect(timezoneByZone('Asia/Dubai')?.code).toBe('dubai');
     expect(timezoneByCode('mars')).toBeUndefined();
     expect(timezoneByZone('Mars/Olympus')).toBeUndefined();
+  });
+});
+
+describe('the administrator’s buttons', () => {
+  it('read only what the bot wrote: a known action, and for a person a real id', () => {
+    for (const bad of [
+      'a:',
+      'a:x',
+      'a:__proto__',
+      'a:a:extra',
+      'ap:',
+      'ap:o',
+      'ap:o:',
+      'ap:q:' + SOME_ID,
+      'ap:o:not-an-id',
+      'ap:__proto__:' + SOME_ID,
+      `ap:o:${SOME_ID}:x`,
+      `ap:o:${SOME_ID.toUpperCase()}`,
+    ]) {
+      expect(decodeCallback(bad), bad).toBeNull();
+    }
+  });
+
+  it('fit into the 64 bytes Telegram allows', () => {
+    for (const callback of everyCallback.filter(
+      (candidate) => candidate.kind === 'admin' || candidate.kind === 'adminPerson',
+    )) {
+      expect(
+        Buffer.byteLength(encodeCallback(callback)),
+        JSON.stringify(callback),
+      ).toBeLessThanOrEqual(64);
+    }
   });
 });

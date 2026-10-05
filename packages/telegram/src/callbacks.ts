@@ -33,7 +33,35 @@ export type MenuTarget =
   | 'settings'
   | 'doctor'
   /** The patients a caregiver watches over. */
-  | 'wards';
+  | 'wards'
+  /** The administrator's section (only for an active technical administrator). */
+  | 'admin';
+
+/** What a button in the administrator's section can ask for. */
+export type AdminAction =
+  'applications' | 'doctors' | 'stats' | 'incidents' | 'admins' | 'addAdmin' | 'cancel';
+
+/** What a button can ask about one person (a doctor or an administrator); their user id travels in it. */
+export type AdminPersonAction =
+  'open' | 'verify' | 'revokeAsk' | 'revoke' | 'revokeAdminAsk' | 'revokeAdmin';
+
+const ADMIN_CODES: Readonly<Record<string, AdminAction>> = {
+  a: 'applications',
+  d: 'doctors',
+  s: 'stats',
+  i: 'incidents',
+  m: 'admins',
+  n: 'addAdmin',
+  c: 'cancel',
+};
+const ADMIN_PERSON_CODES: Readonly<Record<string, AdminPersonAction>> = {
+  o: 'open',
+  v: 'verify',
+  r: 'revokeAsk',
+  y: 'revoke',
+  x: 'revokeAdminAsk',
+  z: 'revokeAdmin',
+};
 
 /** What a button in the doctor's section can ask for. */
 export type DoctorAction =
@@ -174,6 +202,8 @@ export type Callback =
   /** A patient answers an invitation from a doctor. */
   | { readonly kind: 'inviteAnswer'; readonly accepted: boolean }
   | { readonly kind: 'doctor'; readonly action: DoctorAction }
+  | { readonly kind: 'admin'; readonly action: AdminAction }
+  | { readonly kind: 'adminPerson'; readonly action: AdminPersonAction; readonly userId: string }
   /** A doctor answers "is this the person you invited?". */
   | { readonly kind: 'doctorDecision'; readonly relationshipId: string; readonly accept: boolean }
   | { readonly kind: 'revokeInvitation'; readonly invitationId: string }
@@ -235,6 +265,7 @@ const MENU_CODES: Readonly<Record<string, MenuTarget>> = {
   s: 'settings',
   d: 'doctor',
   w: 'wards',
+  a: 'admin',
 };
 
 const DOCTOR_CODES: Readonly<Record<string, DoctorAction>> = {
@@ -348,6 +379,10 @@ export function encodeCallback(callback: Callback): string {
       return `sz:${callback.code}`;
     case 'inviteAnswer':
       return callback.accepted ? 'i:y' : 'i:n';
+    case 'admin':
+      return `a:${codeOf(ADMIN_CODES, callback.action)}`;
+    case 'adminPerson':
+      return `ap:${codeOf(ADMIN_PERSON_CODES, callback.action)}:${callback.userId}`;
     case 'doctor':
       return `d:${Object.entries(DOCTOR_CODES).find(([, action]) => action === callback.action)?.[0] ?? 'p'}`;
     case 'doctorDecision':
@@ -451,6 +486,20 @@ export function decodeCallback(data: string): Callback | null {
     case 'd': {
       const action = Object.hasOwn(DOCTOR_CODES, rest) ? DOCTOR_CODES[rest] : undefined;
       return action === undefined ? null : { kind: 'doctor', action };
+    }
+    case 'a': {
+      const action = Object.hasOwn(ADMIN_CODES, rest) ? ADMIN_CODES[rest] : undefined;
+      return action === undefined ? null : { kind: 'admin', action };
+    }
+    case 'ap': {
+      const [code, id, ...extra] = rest.split(':');
+      const action =
+        code !== undefined && Object.hasOwn(ADMIN_PERSON_CODES, code)
+          ? ADMIN_PERSON_CODES[code]
+          : undefined;
+      return action === undefined || id === undefined || !UUID.test(id) || extra.length > 0
+        ? null
+        : { kind: 'adminPerson', action, userId: id };
     }
     case 'dc': {
       const [id, answer, ...extra] = rest.split(':');

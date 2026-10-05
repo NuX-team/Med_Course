@@ -112,6 +112,7 @@ export const CONVERSATION_FLOWS = [
   'COURSE',
   'DOSE',
   'CAREGIVER',
+  'ADMIN',
 ] as const;
 export const CONSENT_KINDS = ['PERSONAL_DATA'] as const;
 export const CONSENT_DECISIONS = ['GRANTED', 'REVOKED'] as const;
