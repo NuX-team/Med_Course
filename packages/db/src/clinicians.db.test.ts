@@ -360,22 +360,55 @@ describe('reviewing applicants', () => {
     expect(await repos.clinicians.getOwn(clinician(stranger), userId)).toBeNull();
     expect(await repos.clinicians.getOwn(clinician(userId), userId)).not.toBeNull();
   });
+
+  it('opens one applicant in any state, to an administrator who is still one', async () => {
+    const by = await insertTechAdmin(sql());
+    const { userId, telegramId } = await applicant({ lastName: 'Opened' });
+
+    expect(await repos.clinicians.getApplication(admin(by), userId)).toMatchObject({
+      userId,
+      telegramUserId: telegramId,
+      lastName: 'Opened',
+      verificationStatus: 'PENDING',
+      note: NOTE,
+      verificationReference: null,
+    });
+
+    await repos.clinicians.verify(admin(by), { clinicianId: userId, reference: 'seen' });
+    await repos.clinicians.revoke(admin(by), { clinicianId: userId });
+    expect(await repos.clinicians.getApplication(admin(by), userId)).toMatchObject({
+      verificationStatus: 'REVOKED',
+      verificationReference: 'seen',
+    });
+    expect(
+      await repos.clinicians.getApplication(admin(by), '00000000-0000-4000-8000-000000000000'),
+    ).toBeNull();
+    expect(await repos.clinicians.getApplication(admin(by), await insertPatient(sql()))).toBeNull();
+
+    await expect(repos.clinicians.getApplication(patient(by), userId)).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+    await sql()`update platform_staff set status = 'REVOKED' where user_id = ${by}`;
+    await expect(repos.clinicians.getApplication(admin(by), userId)).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+  });
 });
 
 describe('administrator rights', () => {
   it('are granted by the system to an existing active account, and only then', async () => {
     const userId = await insertPatient(sql());
-    expect(await repos.platform.grantTechAdmin(system, userId)).toBe(true);
-    expect(await repos.platform.grantTechAdmin(system, userId)).toBe(true);
+    expect(await repos.platform.grantTechAdmin(system, userId)).toBe('GRANTED');
+    expect(await repos.platform.grantTechAdmin(system, userId)).toBe('ALREADY');
     const [row] = await sql()<{ n: number }[]>`
       select count(*)::int as n from platform_staff where user_id = ${userId} and status = 'ACTIVE'`;
     expect(row?.n).toBe(1);
 
     expect(
       await repos.platform.grantTechAdmin(system, '00000000-0000-4000-8000-000000000000'),
-    ).toBe(false);
+    ).toBe('NO_ACCOUNT');
     const blocked = await insertPatient(sql(), { userStatus: 'BLOCKED' });
-    expect(await repos.platform.grantTechAdmin(system, blocked)).toBe(false);
+    expect(await repos.platform.grantTechAdmin(system, blocked)).toBe('NO_ACCOUNT');
   });
 
   it('cannot be granted by anyone else, and a granted administrator can verify', async () => {
@@ -396,7 +429,7 @@ describe('administrator rights', () => {
   it('are restored for a previously withdrawn administrator', async () => {
     const userId = await insertTechAdmin(sql());
     await sql()`update platform_staff set status = 'REVOKED' where user_id = ${userId}`;
-    expect(await repos.platform.grantTechAdmin(system, userId)).toBe(true);
+    expect(await repos.platform.grantTechAdmin(system, userId)).toBe('GRANTED');
     const [row] = await sql()<{ status: string }[]>`
       select status from platform_staff where user_id = ${userId}`;
     expect(row?.status).toBe('ACTIVE');

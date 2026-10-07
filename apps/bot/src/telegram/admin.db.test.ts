@@ -342,6 +342,30 @@ describe('withdrawing a doctor', () => {
     expect(textOf(admin)).toBe(t('ru', 'admin.alreadyRevoked', { name: 'Nigora Tester' }));
   });
 
+  it('offers a withdrawn doctor reinstatement under that name, with the same question about what was checked', async () => {
+    const admin = await techAdmin();
+    const doctor = await applicant('Umida');
+    const id = await userId(doctor);
+    await openCard(admin, 'Umida Tester');
+    await bot.press(admin, bot.buttonLabelled(admin, t('ru', 'admin.verifyButton')).data);
+    await bot.say(admin, 'проверено');
+    await bot.press(admin, `ap:r:${id}`);
+    await bot.press(admin, `ap:y:${id}`);
+    expect(await statusOf(doctor)).toBe('REVOKED');
+
+    await bot.press(admin, `ap:o:${id}`);
+
+    expect(textOf(admin)).toContain('Статус: статус отозван');
+    expect(labelsOf(admin)).toContain(t('ru', 'admin.reinstateButton'));
+    expect(labelsOf(admin)).not.toContain(t('ru', 'admin.verifyButton'));
+    expect(labelsOf(admin)).not.toContain(t('ru', 'admin.revokeButton'));
+    await bot.press(admin, bot.buttonLabelled(admin, t('ru', 'admin.reinstateButton')).data);
+    expect(textOf(admin)).toContain('Подтвердить врача Umida Tester?');
+    await bot.say(admin, 'восстановлено после разбирательства');
+    expect(await statusOf(doctor)).toBe('VERIFIED');
+    expect(await referenceOf(doctor)).toBe('восстановлено после разбирательства');
+  });
+
   it('says there is no such doctor for an id that belongs to nobody', async () => {
     const admin = await techAdmin();
     await bot.say(admin, '/admin');

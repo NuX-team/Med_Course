@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestDatabase, type TestDatabase } from '../test/helpers';
-import { insertPatient, insertTechAdmin } from '../test/fixtures';
+import { insertCaregiver, insertPatient, insertTechAdmin } from '../test/fixtures';
 import { systemActor, type Actor } from './access/actor';
 import { ForbiddenError } from './access/errors';
 import { createRepositories, createRepositoryDeps, type Repositories } from './repositories';
@@ -58,12 +58,65 @@ describe('isTechAdmin', () => {
   });
 });
 
+describe('the menu flags', () => {
+  const flags = (userId: string) => repos.users.menuFlags(system, userId);
+
+  it('say in one query whether a person watches over somebody and whether they run the service', async () => {
+    const nobody = await insertPatient(sql());
+    expect(await flags(nobody)).toEqual({ watching: false, admin: false });
+
+    const runs = await insertTechAdmin(sql());
+    expect(await flags(runs)).toEqual({ watching: false, admin: true });
+
+    const ward = await insertPatient(sql());
+    const watcher = await insertCaregiver(sql(), ward, { addedBy: runs });
+    expect(await flags(watcher)).toEqual({ watching: true, admin: false });
+    expect(await flags(ward)).toEqual({ watching: false, admin: false });
+  });
+
+  it('stop saying "watching" when the relationship, the patient or the person is no longer active', async () => {
+    const by = await insertTechAdmin(sql());
+    const ward = await insertPatient(sql());
+    const pending = await insertCaregiver(sql(), ward, { addedBy: by, status: 'PENDING' });
+    const revoked = await insertCaregiver(sql(), ward, { addedBy: by, status: 'REVOKED' });
+    const watcher = await insertCaregiver(sql(), ward, { addedBy: by });
+    expect((await flags(pending)).watching).toBe(false);
+    expect((await flags(revoked)).watching).toBe(false);
+    expect((await flags(watcher)).watching).toBe(true);
+
+    await sql()`update users set status = 'BLOCKED' where id = ${ward}`;
+    expect((await flags(watcher)).watching).toBe(false);
+    await sql()`update users set status = 'ACTIVE' where id = ${ward}`;
+    await sql()`update users set status = 'BLOCKED' where id = ${watcher}`;
+    expect((await flags(watcher)).watching).toBe(false);
+  });
+
+  it('stop saying "admin" the moment the rights are taken away', async () => {
+    const runs = await insertTechAdmin(sql());
+    expect((await flags(runs)).admin).toBe(true);
+    await sql()`update platform_staff set status = 'REVOKED' where user_id = ${runs}`;
+    expect((await flags(runs)).admin).toBe(false);
+  });
+
+  it('are read by the system or the person themself, and by nobody else', async () => {
+    const person = await insertPatient(sql());
+    const other = await insertPatient(sql());
+    expect(await repos.users.menuFlags(patient(person), person)).toEqual({
+      watching: false,
+      admin: false,
+    });
+    await expect(repos.users.menuFlags(patient(other), person)).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+  });
+});
+
 describe('granting', () => {
   it('lets an active administrator make another, and records who did it', async () => {
     const maker = await insertTechAdmin(sql());
     const person = await insertPatient(sql());
 
-    expect(await repos.platform.grantTechAdmin(admin(maker), person)).toBe(true);
+    expect(await repos.platform.grantTechAdmin(admin(maker), person)).toBe('GRANTED');
 
     expect(await repos.platform.isTechAdmin(person)).toBe(true);
     const [row] = await sql()<{ actor_kind: string; actor_user_id: string | null }[]>`
@@ -79,11 +132,11 @@ describe('granting', () => {
     await repos.platform.revokeTechAdmin(admin(maker), person);
     expect(await repos.platform.isTechAdmin(person)).toBe(false);
 
-    expect(await repos.platform.grantTechAdmin(admin(maker), person)).toBe(true);
+    expect(await repos.platform.grantTechAdmin(admin(maker), person)).toBe('GRANTED');
     expect(await repos.platform.isTechAdmin(person)).toBe(true);
     const [before] = await sql()<{ n: number }[]>`
       select count(*)::int as n from audit_log where entity_id = ${person}`;
-    expect(await repos.platform.grantTechAdmin(admin(maker), person)).toBe(true);
+    expect(await repos.platform.grantTechAdmin(admin(maker), person)).toBe('ALREADY');
     const [after] = await sql()<{ n: number }[]>`
       select count(*)::int as n from audit_log where entity_id = ${person}`;
     expect(after?.n).toBe(before?.n);
@@ -114,8 +167,8 @@ describe('granting', () => {
     const blocked = await insertPatient(sql(), { userStatus: 'BLOCKED' });
     expect(
       await repos.platform.grantTechAdmin(admin(maker), '00000000-0000-4000-8000-000000000000'),
-    ).toBe(false);
-    expect(await repos.platform.grantTechAdmin(admin(maker), blocked)).toBe(false);
+    ).toBe('NO_ACCOUNT');
+    expect(await repos.platform.grantTechAdmin(admin(maker), blocked)).toBe('NO_ACCOUNT');
   });
 });
 

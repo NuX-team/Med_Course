@@ -166,17 +166,9 @@ export class AdminFlow {
     });
   }
 
-  /** One doctor, whatever state they are in: found among the three lists the database gives. */
-  async #find(actor: Actor, userId: string): Promise<ClinicianApplication | null> {
-    for (const status of ['PENDING', 'VERIFIED', 'REVOKED'] as const) {
-      const found = (await this.#chat.ctx.repos.clinicians.listByStatus(actor, status)).find(
-        (doctor) => doctor.userId === userId,
-      );
-      if (found !== undefined) {
-        return found;
-      }
-    }
-    return null;
+  /** One doctor, whatever state they are in. */
+  #find(actor: Actor, userId: string): Promise<ClinicianApplication | null> {
+    return this.#chat.ctx.repos.clinicians.getApplication(actor, userId);
   }
 
   #zone(): string {
@@ -204,10 +196,14 @@ export class AdminFlow {
           : [t(locale, 'admin.cardChecked', { reference: doctor.verificationReference })]),
       ];
       const status: VerificationStatus = doctor.verificationStatus;
+      // A withdrawn doctor is not "confirmed" but reinstated (D-130): the same question about
+      // what was checked, under a label that says what is really happening.
       const decision: Button[] =
         status === 'VERIFIED'
           ? [this.#personButton('admin.revokeButton', 'revokeAsk', userId)]
-          : [this.#personButton('admin.verifyButton', 'verify', userId)];
+          : status === 'REVOKED'
+            ? [this.#personButton('admin.reinstateButton', 'verify', userId)]
+            : [this.#personButton('admin.verifyButton', 'verify', userId)];
       return [
         this.#chat.respond(lines.join('\n'), [
           decision,
@@ -414,8 +410,8 @@ export class AdminFlow {
       if (account?.status !== 'ACTIVE') {
         return [this.#chat.send(t(locale, 'admin.noAccount'), cancel)];
       }
-      const already = await repos.platform.isTechAdmin(account.id);
-      if (!(await repos.platform.grantTechAdmin(actor, account.id))) {
+      const granted = await repos.platform.grantTechAdmin(actor, account.id);
+      if (granted === 'NO_ACCOUNT') {
         return [this.#chat.send(t(locale, 'admin.noAccount'), cancel)];
       }
       await this.#chat.clear();
@@ -423,7 +419,7 @@ export class AdminFlow {
         (candidate) => candidate.userId === account.id,
       );
       const name = row === undefined ? typed : this.#adminName(row);
-      if (already) {
+      if (granted === 'ALREADY') {
         return [this.#chat.send(t(locale, 'admin.adminAlready', { name }), [this.#back('menu')])];
       }
       return [

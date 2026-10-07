@@ -18,6 +18,9 @@ export interface TechAdminRow {
   readonly since: Date;
 }
 
+/** What granting did: made one, found one already, or found no active account. */
+export type GrantAdminResult = 'GRANTED' | 'ALREADY' | 'NO_ACCOUNT';
+
 /** Why an administrator's rights were or were not taken away. */
 export type RevokeAdminResult = 'REVOKED' | 'NOT_ADMIN' | 'SELF' | 'LAST';
 
@@ -60,9 +63,8 @@ export function createPlatformRepository(db: Executor, deps: RepositoryDeps) {
      * Makes an existing, active account a technical administrator (or restores a revoked one).
      * The system does it (from the server's command line), and so does an administrator who is
      * still active (from the bot, with the person's Telegram id: ARCHITECTURE D-128).
-     * Returns false if there is no such active account.
      */
-    async grantTechAdmin(actor: Actor, userId: string): Promise<boolean> {
+    async grantTechAdmin(actor: Actor, userId: string): Promise<GrantAdminResult> {
       if (actor.kind !== 'SYSTEM' && actor.kind !== 'TECH_ADMIN') {
         throw new ForbiddenError('only the system or an administrator grants administrator rights');
       }
@@ -73,7 +75,7 @@ export function createPlatformRepository(db: Executor, deps: RepositoryDeps) {
           .from(users)
           .where(eq(users.id, userId));
         if (account?.status !== 'ACTIVE') {
-          return false;
+          return 'NO_ACCOUNT';
         }
         const [before] = await tx
           .select()
@@ -81,7 +83,7 @@ export function createPlatformRepository(db: Executor, deps: RepositoryDeps) {
           .where(eq(platformStaff.userId, userId))
           .for('update');
         if (before?.status === 'ACTIVE') {
-          return true;
+          return 'ALREADY';
         }
         const [after] = await tx
           .insert(platformStaff)
@@ -98,7 +100,7 @@ export function createPlatformRepository(db: Executor, deps: RepositoryDeps) {
           changes: before === undefined ? ['role', 'status'] : ['status'],
           ...context,
         });
-        return true;
+        return 'GRANTED';
       });
     },
 

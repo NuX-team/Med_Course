@@ -100,15 +100,11 @@ export async function handleUpdate(context: HandlerContext, update: Update): Pro
     user?.status === 'ACTIVE' && profile !== null
       ? await repos.clinicians.getOwn(asPatient(user.id), user.id)
       : null;
-  // One short query per update: it decides whether the menu offers "wards" at all.
-  const watching =
+  // One short query per update: it decides whether the menu offers "wards" and "admin" at all.
+  const flags =
     user?.status === 'ACTIVE' && profile !== null
-      ? (await repos.caregivers.wards({ kind: 'CAREGIVER', userId: user.id })).length > 0
-      : false;
-  const admin =
-    user?.status === 'ACTIVE' && profile !== null
-      ? await repos.platform.isTechAdmin(user.id)
-      : false;
+      ? await repos.users.menuFlags(system, user.id)
+      : { watching: false, admin: false };
   const standing =
     user?.status === 'ACTIVE' && profile !== null
       ? await repos.privacy.standing(system, user.id)
@@ -127,8 +123,8 @@ export async function handleUpdate(context: HandlerContext, update: Update): Pro
     user: user?.status === 'ACTIVE' ? user : null,
     profile,
     clinician,
-    watching,
-    admin,
+    watching: flags.watching,
+    admin: flags.admin,
     conversation,
     talk,
     locale: user?.status === 'ACTIVE' ? user.locale : isLocale(chosen) ? chosen : null,

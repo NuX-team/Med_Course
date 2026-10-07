@@ -675,6 +675,7 @@ export const ru = {
   'admin.verifyButton': '✅ Подтвердить',
   'admin.revokeButton': '⛔ Отозвать статус',
   'admin.revokeYesButton': '⛔ Да, отозвать',
+  'admin.reinstateButton': '♻️ Восстановить статус',
   'admin.addAdminButton': '➕ Добавить администратора',
   'admin.removeAdminButton': '⛔ Снять права',
   'admin.removeAdminYesButton': '⛔ Да, снять права',

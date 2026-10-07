@@ -137,6 +137,7 @@ const buttonKeys: MessageKey[] = [
   'admin.verifyButton',
   'admin.revokeButton',
   'admin.revokeYesButton',
+  'admin.reinstateButton',
   'admin.addAdminButton',
   'admin.removeAdminButton',
   'admin.removeAdminYesButton',

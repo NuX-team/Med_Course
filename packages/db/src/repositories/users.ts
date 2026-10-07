@@ -1,8 +1,9 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { isHuman, type Actor } from '../access/actor';
 import { ForbiddenError } from '../access/errors';
 import type { Executor } from '../orm';
-import { users } from '../schema';
+import { activeTechAdmin, activeUser } from '../access/scopes';
+import { caregiverRelationships, patientProfiles, users } from '../schema';
 import type { RepositoryDeps } from './context';
 
 export type UserRow = typeof users.$inferSelect;
@@ -28,6 +29,38 @@ export function createUserRepository(db: Executor, deps: RepositoryDeps) {
       }
       const [user] = await db.select().from(users).where(eq(users.telegramUserId, telegramUserId));
       return user ?? null;
+    },
+
+    /**
+     * What the main menu needs to know about a registered person, in one query: whether some
+     * patient lets them watch over a course (the "wards" button), and whether they are an active
+     * technical administrator (the "admin" button). Both only decide what to show; every section
+     * re-checks in the database when opened. System only, or the person themself.
+     */
+    async menuFlags(
+      actor: Actor,
+      userId: string,
+    ): Promise<{ readonly watching: boolean; readonly admin: boolean }> {
+      if (!mayActFor(actor, userId)) {
+        throw new ForbiddenError('only the system reads another person’s menu flags');
+      }
+      const [row] = await db.execute<{ watching: boolean; admin: boolean }>(sql`
+        select
+          (${activeUser(userId)} and exists (
+            select 1 from ${caregiverRelationships}
+            where ${caregiverRelationships.caregiverUserId} = ${userId}
+              and ${caregiverRelationships.status} = 'ACTIVE'
+              and exists (
+                select 1 from ${users}
+                where ${users.id} = ${caregiverRelationships.patientId} and ${users.status} = 'ACTIVE'
+              )
+              and exists (
+                select 1 from ${patientProfiles}
+                where ${patientProfiles.userId} = ${caregiverRelationships.patientId}
+              )
+          )) as watching,
+          ${activeTechAdmin(userId)} as admin`);
+      return { watching: row?.watching === true, admin: row?.admin === true };
     },
 
     /** The account behind an actor, or null if it is not theirs. */

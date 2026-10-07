@@ -685,6 +685,7 @@ export const uz: Record<MessageKey, string> = {
   'admin.verifyButton': '✅ Tasdiqlash',
   'admin.revokeButton': '⛔ Huquqni bekor qilish',
   'admin.revokeYesButton': '⛔ Ha, bekor qilish',
+  'admin.reinstateButton': '♻️ Huquqni tiklash',
   'admin.addAdminButton': '➕ Administrator qoʻshish',
   'admin.removeAdminButton': '⛔ Huquqni olish',
   'admin.removeAdminYesButton': '⛔ Ha, huquqni olish',

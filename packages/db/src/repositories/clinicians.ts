@@ -59,6 +59,31 @@ export function createClinicianRepository(db: Executor, deps: RepositoryDeps) {
     clinicStatus: clinics.status,
   };
 
+  /** What the person who verifies applicants sees about one of them (ClinicianApplication). */
+  const application = {
+    ...selection,
+    telegramUserId: users.telegramUserId,
+    locale: users.locale,
+    note: clinicianProfiles.applicantNote,
+    appliedAt: clinicianProfiles.createdAt,
+    verifiedAt: clinicianProfiles.verifiedAt,
+    verificationReference: clinicianProfiles.verificationReference,
+  };
+
+  /** Administrators only, and still one right now: revocable, so asked on every call. */
+  const assertActiveAdmin = async (tx: Pick<Executor, 'execute'>, actor: Actor): Promise<void> => {
+    if (actor.kind !== 'TECH_ADMIN') {
+      throw new ForbiddenError('only an administrator reviews doctors');
+    }
+    // Said out loud, so an empty list is never a silent refusal.
+    const allowed = await tx.execute<{ ok: boolean }>(
+      sql`select ${activeTechAdmin(actor.userId)} as ok`,
+    );
+    if (allowed[0]?.ok !== true) {
+      throw new ForbiddenError('the administrator is no longer active');
+    }
+  };
+
   const summaryOf = async (
     executor: Executor,
     userId: string,
@@ -258,34 +283,30 @@ export function createClinicianRepository(db: Executor, deps: RepositoryDeps) {
 
     /** Applicants in a given state, oldest first. Administrators only. */
     async listByStatus(actor: Actor, status: VerificationStatus): Promise<ClinicianApplication[]> {
-      if (actor.kind !== 'TECH_ADMIN') {
-        throw new ForbiddenError('only an administrator reviews doctors');
-      }
-      const admin = actor;
       return db.transaction(async (tx) => {
-        // Revocable, so checked now; and said out loud, so an empty list is never a silent refusal.
-        const allowed = await tx.execute<{ ok: boolean }>(
-          sql`select ${activeTechAdmin(admin.userId)} as ok`,
-        );
-        if (allowed[0]?.ok !== true) {
-          throw new ForbiddenError('the administrator is no longer active');
-        }
+        await assertActiveAdmin(tx, actor);
         return tx
-          .select({
-            ...selection,
-            telegramUserId: users.telegramUserId,
-            locale: users.locale,
-            note: clinicianProfiles.applicantNote,
-            appliedAt: clinicianProfiles.createdAt,
-            verifiedAt: clinicianProfiles.verifiedAt,
-            verificationReference: clinicianProfiles.verificationReference,
-          })
+          .select(application)
           .from(clinicianProfiles)
           .innerJoin(clinics, eq(clinics.id, clinicianProfiles.clinicId))
           .innerJoin(users, eq(users.id, clinicianProfiles.userId))
           .where(eq(clinicianProfiles.verificationStatus, status))
           .orderBy(asc(clinicianProfiles.createdAt))
           .limit(LIST_LIMIT);
+      });
+    },
+
+    /** One applicant, whatever state they are in: the card an administrator opens. Administrators only. */
+    async getApplication(actor: Actor, userId: string): Promise<ClinicianApplication | null> {
+      return db.transaction(async (tx) => {
+        await assertActiveAdmin(tx, actor);
+        const [row] = await tx
+          .select(application)
+          .from(clinicianProfiles)
+          .innerJoin(clinics, eq(clinics.id, clinicianProfiles.clinicId))
+          .innerJoin(users, eq(users.id, clinicianProfiles.userId))
+          .where(eq(clinicianProfiles.userId, userId));
+        return row ?? null;
       });
     },
 

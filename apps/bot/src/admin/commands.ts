@@ -128,7 +128,10 @@ export async function runAdminCommand(argv: readonly string[], deps: AdminDeps):
           return 2;
         }
         const account = await repos.users.findByTelegramId(system, telegramId);
-        if (account === null || !(await repos.platform.grantTechAdmin(system, account.id))) {
+        if (
+          account === null ||
+          (await repos.platform.grantTechAdmin(system, account.id)) === 'NO_ACCOUNT'
+        ) {
           out('no active account has that Telegram id: the person must start the bot first');
           return 1;
         }
