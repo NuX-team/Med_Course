@@ -1,11 +1,11 @@
-/* MedCourse web app: same screens as the iOS app, plus an alarm that plays a melody when a dose is due. */
+/* Alcore web app: same screens as the iOS app, plus an alarm that plays a melody when a dose is due. */
 (function () {
   'use strict';
 
   // ---------- Texts ----------
   const T = {
     ru: {
-      'app.name': 'MedCourse', 'signin.title': 'Ваш курс лечения — под рукой',
+      'app.name': 'Alcore', 'signin.title': 'Ваш курс лечения — под рукой',
       'signin.subtitle': 'Приёмы на сегодня, курс от врача и история — в одном месте.',
       'signin.button': 'Войти через Telegram', 'signin.soon': 'Вход через Telegram заработает, когда подключим сервер. Пока — демо.',
       'signin.demo': 'Посмотреть без входа',
@@ -35,7 +35,7 @@
       'history.prn': 'по необходимости',
       'set.language': 'Язык', 'set.alarm': 'Будильник', 'set.alarmOn': 'Мелодия при наступлении приёма', 'set.alarmTest': 'Проверить звук',
       'set.alarmNote': 'Звенит, пока приложение открыто. На закрытом или заблокированном телефоне веб-версия звонить не может — для этого есть напоминания в Telegram.',
-      'set.melody': 'Мелодия', 'set.theme': 'Оформление', 'th.night': 'Ночь', 'th.mint': 'Мята', 'th.dusk': 'Закат', 'mel.soft': 'Мягкая', 'mel.classic': 'Классика', 'mel.bright': 'Звонкая',
+      'set.melody': 'Мелодия', 'set.theme': 'Оформление', 'set.dark': 'Тёмная тема', 'set.theme': 'Оформление', 'th.night': 'Ночь', 'th.mint': 'Мята', 'th.dusk': 'Закат', 'mel.soft': 'Мягкая', 'mel.classic': 'Классика', 'mel.bright': 'Звонкая',
       'set.install': 'Установить на экран «Домой»', 'set.installText': 'В Safari нажмите «Поделиться» внизу, затем «На экран Домой».',
       'set.privacy': 'Согласие и данные', 'set.logout': 'Выйти', 'set.logoutText': 'Выйти из демо и вернуться ко входу?',
       'demo.badge': 'Демо', 'demo.banner': 'Демо-режим: данные ненастоящие, ничего никуда не отправляется.',
@@ -47,7 +47,7 @@
       'err.generic': 'Что-то пошло не так. Попробуйте ещё раз.',
     },
     uz: {
-      'app.name': 'MedCourse', 'signin.title': 'Davolash kursingiz — qoʻl ostida',
+      'app.name': 'Alcore', 'signin.title': 'Davolash kursingiz — qoʻl ostida',
       'signin.subtitle': 'Bugungi qabullar, shifokor kursi va tarix — bir joyda.',
       'signin.button': 'Telegram orqali kirish', 'signin.soon': 'Telegram orqali kirish server ulanganda ishlaydi. Hozircha — demo.',
       'signin.demo': 'Kirmasdan koʻrish',
@@ -77,7 +77,7 @@
       'history.prn': 'zaruratga qarab',
       'set.language': 'Til', 'set.alarm': 'Budilnik', 'set.alarmOn': 'Qabul vaqtida kuy chalinsin', 'set.alarmTest': 'Ovozni tekshirish',
       'set.alarmNote': 'Ilova ochiq turganda chalinadi. Yopiq yoki qulflangan telefonda veb-versiya chala olmaydi — buning uchun Telegram eslatmalari bor.',
-      'set.melody': 'Kuy', 'set.theme': 'Koʻrinish', 'th.night': 'Tun', 'th.mint': 'Yalpiz', 'th.dusk': 'Shom', 'mel.soft': 'Yumshoq', 'mel.classic': 'Klassik', 'mel.bright': 'Jarangdor',
+      'set.melody': 'Kuy', 'set.theme': 'Koʻrinish', 'set.dark': 'Tungi mavzu', 'set.theme': 'Koʻrinish', 'th.night': 'Tun', 'th.mint': 'Yalpiz', 'th.dusk': 'Shom', 'mel.soft': 'Yumshoq', 'mel.classic': 'Klassik', 'mel.bright': 'Jarangdor',
       'set.install': '«Uy» ekraniga oʻrnatish', 'set.installText': 'Safari pastidagi «Ulashish»ni, keyin «Uy ekraniga»ni bosing.',
       'set.privacy': 'Rozilik va maʼlumotlar', 'set.logout': 'Chiqish', 'set.logoutText': 'Demodan chiqib, kirishga qaytasizmi?',
       'demo.badge': 'Demo', 'demo.banner': 'Demo rejim: maʼlumotlar haqiqiy emas, hech narsa yuborilmaydi.',
@@ -102,19 +102,34 @@
     stack: [],
     alarmOn: store.get('alarmOn', true),
     melody: store.get('melody', 'soft'),
-    theme: new URLSearchParams(location.search).get('theme') || store.get('theme', 'night'),
     rung: new Set(store.get('rung', [])),
     today: null,
   };
-  const THEMES = ['night', 'mint', 'dusk'];
-  function applyTheme(name) {
-    name = 'night';
-    S.theme = THEMES.includes(name) ? name : 'night';
-    store.set('theme', S.theme);
-    document.documentElement.dataset.theme = S.theme;
-    const meta = document.querySelector('meta[name=theme-color]');
-    if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#0f1222';
-  }
+  const Theme = {
+    key: 'mc.theme',
+    isDark() {
+      const forced = document.documentElement.getAttribute('data-theme');
+      return forced ? forced === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    },
+    toggle() {
+      const next = this.isDark() ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem(this.key, next); } catch (e) { /* private mode */ }
+      this.paint();
+    },
+    paint() {
+      const meta = document.querySelector('meta[name=theme-color]');
+      if (meta) meta.content = this.isDark() ? '#000000' : '#fbfbfd';
+    },
+    button() {
+      const sun = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="3.75"/><path d="M12 3v1.5M12 19.5V21M4.22 4.22l1.06 1.06M18.72 18.72l1.06 1.06M3 12h1.5M19.5 12H21M4.22 19.78l1.06-1.06M18.72 5.28l1.06-1.06"/></svg>';
+      const moon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z"/></svg>';
+      return `<button class="theme-btn" data-theme-toggle aria-label="theme">${this.isDark() ? sun : moon}</button>`;
+    },
+    bind(root, rerender) {
+      root.querySelectorAll('[data-theme-toggle]').forEach((b) => { b.onclick = () => { this.toggle(); vibrate(8); rerender(); }; });
+    },
+  };
   const t = (k, p) => {
     let s = (T[S.lang] && T[S.lang][k]) || T.ru[k] || k;
     if (p) for (const key in p) s = s.split('{' + key + '}').join(p[key]);
@@ -169,31 +184,22 @@
     sparkle: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7L12 2z"/></svg>',
     tg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.4 4.3L18.3 19c-.2 1-.8 1.3-1.7.8l-4.6-3.4-2.2 2.1c-.2.2-.5.5-1 .5l.3-4.7 8.6-7.8c.4-.3-.1-.5-.6-.2L6.5 13 2 11.6c-1-.3-1-1 .2-1.5L20.1 3.2c.8-.3 1.6.2 1.3 1.1z"/></svg>',
   };
-  const MOUNTAINS = `<svg class="mountains" viewBox="0 0 390 230" preserveAspectRatio="none"><defs>
-      <linearGradient id="mA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dfe8ee"/><stop offset=".35" stop-color="#8ea6b6"/><stop offset="1" stop-color="#2a3a44"/></linearGradient>
-      <linearGradient id="mB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4c6474"/><stop offset="1" stop-color="#1b252c"/></linearGradient>
-      <linearGradient id="mC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26333b" stop-opacity=".9"/><stop offset="1" stop-color="#0b0c0d"/></linearGradient></defs>
-      <path d="M0 150 L60 118 L95 128 L150 72 L178 60 L196 52 L214 64 L240 82 L270 100 L320 88 L390 120 L390 230 L0 230Z" fill="url(#mA)"/>
-      <path d="M150 72 L178 60 L196 52 L214 64 L203 70 L192 63 L182 74 L168 72Z" fill="#fff" opacity=".85"/>
-      <path d="M0 170 L50 150 L110 160 L160 135 L230 150 L300 130 L390 158 L390 230 L0 230Z" fill="url(#mB)"/>
-      <path d="M0 196 L80 182 L170 194 L260 178 L390 192 L390 230 L0 230Z" fill="url(#mC)"/></svg>`;
   const statusIcon = (s) => {
-    const c = { TAKEN: 'var(--teal)', TAKEN_LATE: 'var(--gold)', SKIPPED: 'var(--coral)', MISSED: 'var(--coral)', SNOOZED: 'var(--gold)', NOTIFIED: 'var(--blue)' }[s] || 'var(--faint)';
-    const inner = {
-      TAKEN: '<path d="M10.5 15.5l3 3 6-6.5" stroke="CLR" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
-      TAKEN_LATE: '<path d="M10.5 15.5l3 3 6-6.5" stroke="CLR" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
-      SKIPPED: '<path d="M11.5 11.5l7 7M18.5 11.5l-7 7" stroke="CLR" stroke-width="1.8" stroke-linecap="round"/>',
-      MISSED: '<path d="M11 15h8" stroke="CLR" stroke-width="1.8" stroke-linecap="round"/>',
-      SNOOZED: '<path d="M15 10.5V15l3 2" stroke="CLR" stroke-width="1.8" fill="none" stroke-linecap="round"/>',
-      NOTIFIED: '<circle cx="15" cy="15" r="3.2" fill="CLR"/>',
-    }[s] || '';
-    return `<svg class="status-icon" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="none" stroke="CLR" stroke-opacity=".45" stroke-width="1"/>${inner}</svg>`.split('CLR').join(c);
+    const c = { TAKEN: 'var(--success)', TAKEN_LATE: 'var(--warning)', SKIPPED: 'var(--danger)', MISSED: 'var(--danger)', SNOOZED: 'var(--warning)', NOTIFIED: 'var(--accent)' }[s] || 'var(--muted)';
+    const inner = { TAKEN: '<path d="M7.5 12.5l3 3 6-6.5" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+      TAKEN_LATE: '<path d="M7.5 12.5l3 3 6-6.5" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+      SKIPPED: '<path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>',
+      MISSED: '<path d="M12 7v6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="16.5" r="1.4" fill="#fff"/>',
+      SNOOZED: '<path d="M12 7.5V12l3 2" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/>',
+      NOTIFIED: '<path d="M12 7v6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="16.5" r="1.4" fill="#fff"/>' }[s];
+    return inner ? `<svg class="status-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="${c}"/>${inner}</svg>`
+      : `<svg class="status-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="${c}" stroke-width="2" opacity=".5"/></svg>`;
   };
   const ring = (frac, label, done, big) => {
     const r = 28, c = 2 * Math.PI * r;
     return `<div class="ring ${done ? 'done' : ''} ${big ? 'big' : ''}"><svg viewBox="0 0 66 66"><circle class="track" cx="33" cy="33" r="${r}"/><circle class="bar" cx="33" cy="33" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - Math.max(0.001, frac))}"/></svg><div class="label">${label}</div></div>`;
   };
-  const csColor = (s) => ({ ACTIVE: 'var(--teal)', PENDING_PATIENT: 'var(--blue)', PAUSED: 'var(--gold)' })[s] || 'var(--muted)';
+  const csColor = (s) => ({ ACTIVE: 'var(--success)', PENDING_PATIENT: 'var(--accent)', PAUSED: 'var(--warning)' })[s] || 'var(--muted)';
   const pill = (text, color) => `<span class="pill" style="--c:${color}">${esc(text)}</span>`;
 
   // ---------- Feedback ----------
@@ -205,7 +211,22 @@
     clearTimeout(toast.timer);
     toast.timer = setTimeout(() => { const el = root.firstChild; if (el) { el.classList.add('out'); setTimeout(() => { root.innerHTML = ''; }, 300); } }, 2600);
   }
-  function confetti() { /* intentionally quiet */ }
+  function confetti() {
+    const box = document.createElement('div');
+    box.className = 'confetti';
+    const colors = ['#2E85FF', '#735CFA', '#21B373', '#F99E1A', '#ED474D'];
+    for (let i = 0; i < 36; i++) {
+      const p = document.createElement('i');
+      p.style.left = Math.random() * 100 + '%';
+      p.style.background = colors[i % colors.length];
+      p.style.setProperty('--dx', (Math.random() * 120 - 60) + 'px');
+      p.style.setProperty('--r', (Math.random() * 720 - 360) + 'deg');
+      p.style.animationDelay = Math.random() * 0.25 + 's';
+      box.appendChild(p);
+    }
+    document.body.appendChild(box);
+    setTimeout(() => box.remove(), 1900);
+  }
   function fail(e) { vibrate(80); toast(T[S.lang]['err.' + e.code] ? t('err.' + e.code) : t('err.generic'), true); }
 
   // ---------- Sheets (own UI: never the browser's confirm/select) ----------
@@ -308,17 +329,20 @@
     if (document.querySelector('.alarm-screen')) return;
     const el = document.createElement('div');
     el.className = 'alarm-screen';
-    el.innerHTML = `${MOUNTAINS.replace('class="mountains"', 'class="mountains" style="position:absolute;left:0;right:0;top:46%;width:100%;height:230px"')}<div class="alarm-top"><div class="alarm-live"><i></i>${esc(t('alarm.live'))}</div><div class="wordmark" style="font-size:14px">MEDCOURSE</div></div>
+    el.innerHTML = `<div class="alarm-pulse"></div><div class="alarm-pulse two"></div>
       <div class="alarm-body">
-        <div class="alarm-rings"><b></b><b></b><b></b><div class="alarm-time">${esc(time(d.scheduledAt))}</div></div>
+        <div class="alarm-icon">${I.bell}</div>
+        <div class="alarm-time">${esc(time(d.scheduledAt))}</div>
         <div class="alarm-title">${esc(t('alarm.title'))}</div>
         <div class="alarm-med">${esc(d.medication.displayName)}</div>
         <div class="alarm-sub">${esc(amount(d.medication))} · ${esc(t('f.' + d.medication.foodRule))}</div>
       </div>
       <div class="alarm-actions">
-        <button class="btn big" data-a="take">${I.check}${esc(t('take'))}</button>
-        <div class="btn-row">${(d.snoozeOptions.length ? d.snoozeOptions : [10]).map((n) => `<button class="btn outline" data-a="snooze" data-n="${n}">+${n} ${S.lang === 'uz' ? 'daq' : 'мин'}</button>`).join('')}</div>
-        <button class="btn ghost" data-a="skip">${esc(t('skip'))}</button>
+        <button class="btn white big" data-a="take">${I.check}${esc(t('take'))}</button>
+        <div class="btn-row">
+          ${(d.snoozeOptions.length ? d.snoozeOptions : [10]).map((n) => `<button class="btn glass grow" data-a="snooze" data-n="${n}">${esc(t('laterN', { n }))}</button>`).join('')}
+        </div>
+        <button class="btn ghost light" data-a="skip">${esc(t('skip'))}</button>
       </div>`;
     document.body.appendChild(el);
     if (S.alarmOn) Alarm.start(S.melody);
@@ -356,12 +380,9 @@
   }
   function tabbar() {
     const b = (id, icon, key) => `<button data-tab="${id}" class="${S.tab === id ? 'on' : ''}">${icon}<span>${esc(t(key))}</span></button>`;
-    return `<nav class="tabbar"><div class="pillbar">${b('today', I.sun, 'tab.today')}${b('courses', I.case, 'tab.courses')}${b('settings', I.person, 'tab.settings')}</div>
-      <button class="fab" data-fab aria-label="+">${I.plus}</button></nav>`;
+    return `<nav class="tabbar">${b('today', I.sun, 'tab.today')}${b('courses', I.case, 'tab.courses')}${b('settings', I.person, 'tab.settings')}</nav>`;
   }
   function bindTabs() {
-    const fab = app().querySelector('[data-fab]');
-    if (fab) fab.onclick = () => { S.tab = 'today'; S.stack = []; render(); setTimeout(() => { const el = document.querySelector('[data-prn-section]'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 80); };
     app().querySelectorAll('[data-tab]').forEach((el) => { el.onclick = () => { S.tab = el.dataset.tab; S.stack = []; vibrate(8); render(); window.scrollTo(0, 0); }; });
   }
   function push(screen) { S.stack.push(screen); render(); window.scrollTo(0, 0); }
@@ -370,17 +391,17 @@
   function bindBack() { const b = app().querySelector('[data-back]'); if (b) b.onclick = pop; }
 
   function renderSignIn() {
-    app().innerHTML = `<div class="signin">${MOUNTAINS}
-      <div class="top"><div class="wordmark">MEDCOURSE</div>
-        <div class="lang">${['ru', 'uz'].map((l) => `<button data-lang="${l}" class="${S.lang === l ? 'on' : ''}">${l}</button>`).join('')}</div></div>
-      <div class="hero-text"><h1>${esc(t('signin.h1a'))}<br><em>${esc(t('signin.h1b'))}</em></h1><p>${esc(t('signin.lead'))}</p></div>
+    app().innerHTML = `<div class="signin">${Theme.button()}<div class="bubble a"></div><div class="bubble b"></div>
+      <div class="logo"><img src="icon-192.png?v=6" alt=""></div>
+      <h1>${esc(t('app.name'))}</h1><h2>${esc(t('signin.title'))}</h2><p>${esc(t('signin.subtitle'))}</p>
       <div class="actions">
-        <button class="btn" data-tg>${I.tg}${esc(t('signin.button'))}</button>
-        <button class="text-link" data-demo>${esc(t('signin.demo'))}</button>
+        <button class="btn white" data-tg>${I.tg}${esc(t('signin.button'))}</button>
+        <div class="segmented">${['ru', 'uz'].map((l) => `<button data-lang="${l}" class="${S.lang === l ? 'on' : ''}">${l === 'ru' ? 'Русский' : 'Oʻzbekcha'}</button>`).join('')}</div>
+        <button class="btn glass tap" data-demo>${I.sparkle}${esc(t('signin.demo'))}</button>
       </div></div>`;
     const root = app();
     root.querySelector('[data-tg]').onclick = () => toast(t('signin.soon'));
-    root.querySelectorAll('[data-theme-pick]').forEach((b) => { b.onclick = () => { applyTheme(b.dataset.themePick); vibrate(8); renderSignIn(); }; });
+    Theme.bind(root, renderSignIn);
     root.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => { S.lang = b.dataset.lang; store.set('lang', S.lang); renderSignIn(); }; });
     root.querySelector('[data-demo]').onclick = () => {
       Alarm.unlock();
@@ -393,67 +414,38 @@
   }
 
   async function renderToday() {
+    const greet = t(hourNow() >= 4 && hourNow() < 12 ? 'g.morning' : hourNow() < 18 && hourNow() >= 12 ? 'g.day' : 'g.evening');
+    const head = `<div class="head-row"><div><div class="eyebrow">${esc(weekday(todayLocal()))} ${pill(t('demo.badge'), 'var(--warning)')}</div><div class="greeting">${esc(greet)}, Farhod</div></div>${Theme.button()}</div>`;
     if (!S.today) {
-      app().innerHTML = `<div class="screen"><div class="stack" style="margin-top:60px"><div class="card skeleton"></div><div class="card skeleton"></div></div></div>${tabbar()}`;
+      app().innerHTML = `<div class="screen">${head}<div class="stack"><div class="card skeleton"></div><div class="card skeleton"></div></div></div>${tabbar()}`;
       bindTabs();
       try { S.today = await api('GET', '/today'); } catch (e) { fail(e); return; }
       if (S.tab !== 'today' || S.stack.length) return;
     }
     const today = S.today;
-    const isOpen = (d) => ['SCHEDULED', 'NOTIFIED', 'SNOOZED'].includes(d.status);
     const counted = today.doses.filter((d) => d.status !== 'SUPERSEDED');
+    const isOpen = (d) => ['SCHEDULED', 'NOTIFIED', 'SNOOZED'].includes(d.status);
     const answered = counted.filter((d) => !isOpen(d)).length;
-    const onTime = counted.filter((d) => d.status === 'TAKEN').length;
     const next = counted.filter(isOpen).sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))[0];
     const frac = counted.length ? answered / counted.length : 0;
     const allDone = counted.length > 0 && answered === counted.length;
-    const statement = !counted.length ? t('today.empty') : allDone ? t('hero.done') : answered ? t('hero.good') : t('hero.start');
-    const sub = !counted.length ? t('hero.subNone') : allDone ? t('hero.subDone') : next ? t('hero.subNext', { name: next.medication.displayName, time: time(next.scheduledAt) }) : '';
-    const statusWord = allDone ? [S.lang === 'uz' ? 'Ajoyib' : 'Отлично', 'var(--teal)'] : answered ? [S.lang === 'uz' ? 'Rejada' : 'По плану', 'var(--blue)'] : [S.lang === 'uz' ? 'Tayyor' : 'Готово к старту', '#fff'];
-    // Gauge: an arc of 200°, filled by the share of doses answered.
-    const R = 120, cx = 140, cy = 130, a0 = Math.PI * (1 + 10 / 180), a1 = -Math.PI * (10 / 180);
-    const pt = (a) => [cx + R * Math.cos(a), cy + R * Math.sin(a)];
-    const [x0, y0] = pt(a0), [x1, y1] = pt(a1);
-    const af = a0 + (a1 - a0 + 0) * 0 + (2 * Math.PI - (a0 - a1 + 2 * Math.PI) % (2 * Math.PI)) * 0;
-    void af;
-    const sweep = (Math.PI + 2 * (10 / 180) * Math.PI);
-    const aEnd = a0 + sweep * frac;
-    const [xe, ye] = pt(aEnd);
-    const ticks = Array.from({ length: 11 }, (_, i) => { const a = a0 + (sweep * i) / 10; const [x, y] = pt(a); const [xi, yi] = [cx + (R - 9) * Math.cos(a), cy + (R - 9) * Math.sin(a)]; return `<line x1="${x}" y1="${y}" x2="${xi}" y2="${yi}" stroke="rgba(255,255,255,.35)" stroke-width="1"/>`; }).join('');
-    const gauge = `<svg class="gauge" viewBox="0 0 280 140">${ticks}
-      <path d="M${x0} ${y0} A${R} ${R} 0 0 1 ${x1} ${y1}" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="3" stroke-linecap="round"/>
-      ${frac > 0 ? `<path d="M${x0} ${y0} A${R} ${R} 0 ${sweep * frac > Math.PI ? 1 : 0} 1 ${xe} ${ye}" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>` : ''}
-      <text x="${x0 - 4}" y="${y0 + 16}" fill="rgba(255,255,255,.6)" font-size="10" text-anchor="middle">0</text>
-      <text x="${x1 + 4}" y="${y1 + 16}" fill="rgba(255,255,255,.6)" font-size="10" text-anchor="middle">${counted.length}</text></svg>`;
 
-    const courseDayN = 3;
     const alarmCard = !Alarm.unlocked && S.alarmOn
-      ? `<button class="card notice tap" data-unlock><div class="notice-ico">${I.bell}</div><div class="grow"><div style="font-weight:500">${esc(t('alarm.enable'))}</div><div class="small muted">${esc(t('alarm.enableText'))}</div></div>${I.chev}</button>` : '';
+      ? `<button class="card tap row" data-unlock style="text-align:left"><div class="empty-ico">${I.alarm}</div><div class="grow"><div class="bold">${esc(t('alarm.enable'))}</div><div class="small muted">${esc(t('alarm.enableText'))}</div></div></button>` : '';
+
+    const progress = counted.length ? `<div class="card progress-card">${ring(frac, allDone ? `<span style="color:var(--success)">${I.check.replace('<svg', '<svg width="24" height="24"')}</span>` : Math.round(frac * 100) + '%', allDone)}
+      <div class="grow"><div class="bold">${esc(t('today.progress', { a: answered, b: counted.length }))}</div>
+      <div class="small muted">${allDone ? esc(t('today.allDone')) : next ? esc(t('today.next') + ': ' + time(next.scheduledAt) + ' · ' + next.medication.displayName) : ''}</div></div></div>` : '';
 
     const cards = today.doses.map((d) => doseCard(d, next && d.id === next.id)).join('');
-    const prn = today.asNeeded.length ? `<div class="section-title" data-prn-section>${I.plus}${esc(t('sec.prn'))}</div><div class="stack">${today.asNeeded.map(prnCard).join('')}</div>` : '';
+    const prn = today.asNeeded.length ? `<div class="section-title">${esc(t('today.asNeeded'))}</div><div class="stack">${today.asNeeded.map(prnCard).join('')}</div>` : '';
 
-    app().innerHTML = `<div class="screen">
-      <div class="today-hero">${MOUNTAINS}
-        <div class="eyebrow"><span>${esc(weekday(todayLocal()))}</span>${S.stack.length ? '' : `<span class="status" style="--c:var(--gold)">${esc(t('demo.badge'))}</span>`}</div>
-        <div class="hero-stats">
-          <div class="hero-stat"><b>${answered}</b>${esc(t('hero.label').split(' ')[0])}</div>
-          <div class="hero-stat"><b>${onTime}</b>${esc(t('st.ontime'))}</div>
-          <div class="hero-stat"><b>${next ? esc(time(next.scheduledAt)) : '—'}</b>${esc(t('stat.next'))}</div>
-          <div class="hero-stat"><b>${courseDayN}</b>${esc(t('st.day'))}</div>
-        </div>
-        ${counted.length ? gauge + `<div class="score"><div class="n">${answered}<span style="font-size:24px;opacity:.6">/${counted.length}</span></div><div class="l">${esc(t('hero.label'))}</div></div>` : ''}
-        <div class="statement">${esc(statement)}</div>
-        <div class="statement-sub">${esc(sub)}</div>
-        <div class="status" style="--c:${statusWord[1]};text-align:center;margin-top:12px">${statusWord[0]}</div>
-      </div>
-      <div class="stack" style="margin-top:4px">${alarmCard}</div>
-      <div class="section-title">${I.alarm}${esc(t('sec.doses'))}</div>
-      <div class="stack">${cards || `<div class="card empty"><h3>${esc(t('today.empty'))}</h3></div>`}</div>${prn}</div>${tabbar()}`;
+    app().innerHTML = `<div class="screen">${head}<div class="stack">${alarmCard}${progress}${cards || `<div class="card empty"><h3>${esc(t('today.empty'))}</h3></div>`}</div>${prn}</div>${tabbar()}`;
     bindTabs();
     const root = app();
     const u = root.querySelector('[data-unlock]');
     if (u) u.onclick = () => { Alarm.test(); toast(t('alarm.on')); renderToday(); };
+    Theme.bind(root, renderToday);
     root.querySelectorAll('[data-dose]').forEach((el) => {
       const d = today.doses.find((x) => x.id === el.dataset.dose);
       el.querySelectorAll('[data-act]').forEach((b) => {
@@ -487,9 +479,9 @@
         ${open ? `<div class="btn-row">${d.snoozeOptions.length ? `<button class="btn soft warning" data-act="later">${I.alarm}${esc(t('later'))}</button>` : ''}<button class="btn soft danger" data-act="skip">${I.x}${esc(t('skip'))}</button></div>` : ''}
         ${d.status === 'SNOOZED' && d.snoozedUntil ? `<div class="small muted" style="margin-top:8px">${esc(t('s.SNOOZED'))} ${esc(t('snoozedTo', { t: time(d.snoozedUntil) }))}</div>` : ''}</div>`;
     } else {
-      const color = { TAKEN: 'var(--teal)', TAKEN_LATE: 'var(--gold)' }[d.status] || 'var(--coral)';
+      const color = { TAKEN: 'var(--success)', TAKEN_LATE: 'var(--warning)' }[d.status] || 'var(--danger)';
       const canUndo = d.correctableUntil && new Date(d.correctableUntil) > new Date();
-      body = `<div class="dose-footer"><span class="status" style="--c:${color}">${esc(t('s.' + d.status))}</span>${d.skipReason ? `<span class="tiny muted">${esc(t('r.' + d.skipReason))}</span>` : ''}<span class="grow"></span>${canUndo ? `<button class="link" data-act="undo">${esc(t('undo'))}</button>` : ''}</div>`;
+      body = `<div class="dose-footer">${pill(t('s.' + d.status), color)}${d.skipReason ? `<span class="tiny muted">${esc(t('r.' + d.skipReason))}</span>` : ''}<span class="grow"></span>${canUndo ? `<button class="link" data-act="undo">${esc(t('undo'))}</button>` : ''}</div>`;
     }
     return `<div class="card ${isNext ? 'next' : ''}" data-dose="${esc(d.id)}"><div class="dose-head"><div class="dose-time ${isNext ? 'next' : ''}">${esc(time(d.scheduledAt))}</div>
       <div class="grow"><div class="dose-name">${esc(d.medication.displayName)}</div><div class="small muted">${sub}</div></div>${statusIcon(d.status)}</div>${body}</div>`;
@@ -568,8 +560,8 @@
     const day = c.status === 'ACTIVE' ? courseDay(c.firstDay) : null;
     const pct = c.adherence && c.adherence.percent != null ? Math.round(c.adherence.percent) : null;
     return `<button class="card tap" data-course="${esc(c.id)}" style="text-align:left;width:100%">
-      <div class="row"><span class="status" style="--c:${csColor(c.status)}">${esc(t('cs.' + c.status))}</span>${c.changePending ? `<span class="status" style="--c:var(--gold)">${esc(t('course.change'))}</span>` : ''}<span class="grow"></span>${I.chev}</div>
-      <div class="course-title">${esc(t('course.from', { d: dayMonth(c.sentAt) }))}</div>
+      <div class="row">${pill(t('cs.' + c.status), csColor(c.status))}${c.changePending ? pill(t('course.change'), 'var(--warning)') : ''}<span class="grow"></span>${I.chev}</div>
+      <div class="dose-name" style="margin-top:10px">${esc(t('course.from', { d: dayMonth(c.sentAt) }))}</div>
       <div class="small muted" style="margin-top:4px">${esc(c.medications.map((m) => m.displayName).join(' · '))}</div>
       <div class="course-meta"><span>${I.steth}${esc(c.doctor.firstName + ' ' + c.doctor.lastName)}</span><span>${I.cal}${esc(t('course.days', { n: c.durationDays }))}</span>
       ${pct != null ? `<span style="color:${pct >= 80 ? 'var(--success)' : 'var(--warning)'}">${I.chart}${pct}%</span>` : ''}</div>
@@ -638,8 +630,10 @@
   function renderSettings() {
     const mel = ['soft', 'classic', 'bright'];
     app().innerHTML = `<div class="screen"><div class="title-xl">${esc(t('tab.settings'))}</div>
-      <div class="list"><div class="list-item"><span class="pill" style="--c:var(--warning)">${esc(t('demo.badge'))}</span><span class="small muted">${esc(t('demo.banner'))}</span></div></div>
+      <div class="list"><div class="list-item" style="color:var(--warning)">${I.sparkle}<span class="small">${esc(t('demo.banner'))}</span></div></div>
       <div class="list" style="margin-top:14px"><div class="list-item"><div class="avatar">FD</div><div class="grow"><div class="bold">Farhod Demo</div><div class="small muted">${ZONE}</div></div></div></div>
+      <div class="list-head">${esc(t('set.theme'))}</div>
+      <div class="list"><button class="list-item button" data-dark>${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z"/></svg>'}<span class="grow">${esc(t('set.dark'))}</span><span class="switch ${Theme.isDark() ? 'on' : ''}"><i></i></span></button></div>
       <div class="list-head">${esc(t('set.language'))}</div>
       <div class="list"><div class="list-item"><div class="segmented light">${['ru', 'uz'].map((l) => `<button data-lang="${l}" class="${S.lang === l ? 'on' : ''}">${l === 'ru' ? 'Русский' : 'Oʻzbekcha'}</button>`).join('')}</div></div></div>
       <div class="list-head">${esc(t('set.alarm'))}</div>
@@ -658,7 +652,7 @@
     bindTabs();
     const root = app();
     root.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => { S.lang = b.dataset.lang; store.set('lang', S.lang); renderSettings(); }; });
-    root.querySelectorAll('[data-theme-pick]').forEach((b) => { b.onclick = () => { applyTheme(b.dataset.themePick); vibrate(8); renderSettings(); }; });
+    root.querySelector('[data-dark]').onclick = () => { Theme.toggle(); vibrate(8); renderSettings(); };
     root.querySelector('[data-alarm]').onclick = () => { S.alarmOn = !S.alarmOn; store.set('alarmOn', S.alarmOn); if (S.alarmOn) Alarm.unlock(); vibrate(10); toast(t(S.alarmOn ? 'alarm.on' : 'alarm.off')); renderSettings(); };
     root.querySelectorAll('[data-mel]').forEach((b) => { b.onclick = () => { S.melody = b.dataset.mel; store.set('melody', S.melody); Alarm.test(); renderSettings(); }; });
     root.querySelector('[data-test]').onclick = () => Alarm.test();
@@ -686,7 +680,8 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); if (S.phase === 'app' && S.tab === 'today' && !S.stack.length && S.today) renderToday(); } });
   setInterval(tick, 15000);
   setInterval(() => { if (S.phase === 'app' && S.tab === 'today' && !S.stack.length && !document.querySelector('.sheet') && !document.querySelector('.alarm-screen')) renderToday(); }, 60000);
-  applyTheme(S.theme);
+  Theme.paint();
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { Theme.paint(); render(); });
   render();
   window.__mc = { S, Alarm, tick, dueDose };
 })();

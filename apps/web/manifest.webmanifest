@@ -1,11 +1,11 @@
 {
-  "name": "MedCourse",
-  "short_name": "MedCourse",
+  "name": "Alcore",
+  "short_name": "Alcore",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0D0D0B",
-  "theme_color": "#0D0D0B",
+  "background_color": "#fbfbfd",
+  "theme_color": "#0071e3",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
