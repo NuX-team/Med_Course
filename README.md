@@ -6,7 +6,7 @@
 
 _A Telegram bot for medication-course adherence: the doctor writes the course, the patient explicitly starts it, the bot reminds, the doctor sees adherence. MVP for private doctors in Uzbekistan, Russian and Uzbek (Latin)._
 
-[![CI](https://github.com/phant0mcyber01-hud/Med_Course/actions/workflows/ci.yml/badge.svg)](https://github.com/phant0mcyber01-hud/Med_Course/actions/workflows/ci.yml)
+[![CI](https://github.com/NuX-team/Med_Course/actions/workflows/ci.yml/badge.svg)](https://github.com/NuX-team/Med_Course/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-24-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
@@ -92,7 +92,7 @@ stateDiagram-v2
 Нужны **Node 24** и **pnpm 9** (`corepack enable`). Docker не обязателен: тестовый Postgres поднимается встроенный.
 
 ```bash
-git clone https://github.com/phant0mcyber01-hud/Med_Course.git && cd Med_Course
+git clone https://github.com/NuX-team/Med_Course.git && cd Med_Course
 pnpm install
 
 cp .env.example .env     # впишите TELEGRAM_BOT_TOKEN тестового бота от @BotFather (в git он не попадёт)
