@@ -7,3 +7,4 @@ packages/report/src/font.generated.ts
 packages/report/FONT-LICENSE.txt
 apps/ios/CoreCheck/fixtures/
 apps/ios/MedCourse/Assets.xcassets/
+apps/web/
