@@ -485,3 +485,81 @@ body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro
 .row-take svg { width: 16px; height: 16px; }
 .row-take:active { transform: scale(0.92); }
 .tl-row.busy, .card .tl-row.busy { opacity: 0.45; pointer-events: none; }
+
+/* ===================== Responsive: every screen size ===================== */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+img, svg { max-width: 100%; }
+.grow, .tl-body, .tl-head > .grow { min-width: 0; }
+.tl-name, .tl-meta, .dose-name { overflow-wrap: anywhere; }
+
+/* Content column: comfortable reading width on tablets and desktops, centred */
+.screen, .signin { width: 100%; max-width: 560px; margin-left: auto; margin-right: auto; }
+.tabbar { padding-left: max(8px, calc((100vw - 560px) / 2 + 8px)); padding-right: max(8px, calc((100vw - 560px) / 2 + 8px)); }
+.sheet { left: 50%; right: auto; width: 100%; max-width: 560px; transform: translateX(-50%); }
+@keyframes sheet-in { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
+@keyframes sheet-out { to { transform: translate(-50%, 100%); } }
+.toast { max-width: min(520px, calc(100% - 32px)); }
+.alarm-body, .alarm-actions { width: 100%; max-width: 480px; margin-left: auto; margin-right: auto; }
+.alarm-actions { margin-top: auto; }
+
+/* Fluid type: scales between small and large phones without jumps */
+.greeting { font-size: clamp(24px, 7.2vw, 32px); }
+.title-xl { font-size: clamp(26px, 7.5vw, 34px); }
+.signin h1 { font-size: clamp(32px, 10vw, 44px); }
+.alarm-time { font-size: clamp(48px, 16vw, 72px); }
+.alarm-med { font-size: clamp(22px, 7vw, 30px); }
+
+/* Small phones (iPhone SE 1st gen, Galaxy Fold cover): tighter gutters and rail */
+@media (max-width: 360px) {
+  .screen { padding-left: 12px; padding-right: 12px; }
+  .card { padding: 14px; }
+  .card.timeline { padding: 4px 12px; }
+  .tl-row { grid-template-columns: 42px 22px minmax(0, 1fr); column-gap: 8px; }
+  .tl-time { font-size: 14px; }
+  .tl-dot { width: 20px; height: 20px; }
+  .tl-name { font-size: 15px; }
+  .btn { font-size: 15px; padding: 13px 12px; }
+  .btn-row { flex-wrap: wrap; }
+  .btn-row > .btn { flex: 1 1 120px; }
+  .progress-card { gap: 12px; }
+  .ring { width: 56px; height: 56px; }
+  .tabbar button { font-size: 10px; }
+  .theme-btn { width: 36px; height: 36px; }
+  .signin { padding-left: 18px; padding-right: 18px; }
+  .signin .segmented { width: 100%; }
+}
+@media (max-width: 300px) {
+  .tl-row { grid-template-columns: 38px minmax(0, 1fr); }
+  .tl-rail { display: none; }
+  .btn-row { flex-direction: column; }
+}
+
+/* Short screens and phones on their side: compact chrome, scrollable alarm */
+@media (max-height: 520px) {
+  .tabbar { padding-top: 4px; padding-bottom: calc(var(--safe-bottom) + 4px); }
+  .tabbar button { flex-direction: row; justify-content: center; gap: 6px; font-size: 12px; }
+  .tabbar svg { width: 20px; height: 20px; }
+  .screen { padding-bottom: calc(var(--safe-bottom) + 64px); }
+  .signin { min-height: auto; }
+  .logo { margin-top: 0; width: 72px; height: 72px; border-radius: 20px; }
+  .logo img { width: 56px; height: 56px; }
+  .signin .actions { margin-top: 20px; }
+  .alarm-screen { overflow-y: auto; padding-top: calc(var(--safe-top) + 12px); }
+  .alarm-icon { width: 56px; height: 56px; margin-bottom: 8px; }
+  .alarm-icon svg { width: 28px; height: 28px; }
+  .alarm-body { margin-top: 0; }
+  .alarm-actions { margin-top: 16px; }
+  .sheet { max-height: 92vh; }
+}
+
+/* Landscape safe areas (notch on the side) */
+@supports (padding: max(0px)) {
+  .screen { padding-left: max(18px, env(safe-area-inset-left)); padding-right: max(18px, env(safe-area-inset-right)); }
+}
+
+/* Large screens: a bit more air, bigger tap targets stay the same */
+@media (min-width: 700px) {
+  .screen { padding-top: calc(var(--safe-top) + 28px); }
+  .tabbar button { max-width: 160px; }
+  .tabbar { justify-content: center; }
+}
