@@ -89,6 +89,19 @@ struct SignInView: View {
                         .pickerStyle(.segmented)
                         .frame(width: 240)
                         .padding(.top, 6)
+
+                        Button {
+                            Task { await state.enterDemo() }
+                        } label: {
+                            Label(state.t("signin.demo"), systemImage: "sparkles")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 10)
+                                .background(.white.opacity(0.16), in: Capsule())
+                        }
+                        .buttonStyle(PressableStyle())
+                        .padding(.top, 4)
                     }
                 }
                 .animation(.spring(response: 0.45, dampingFraction: 0.85), value: pending != nil)

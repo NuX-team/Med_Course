@@ -90,6 +90,8 @@ enum TokenStore {
 final class APIClient: @unchecked Sendable {
     let baseURL: URL
     var token: String?
+    /// Demo mode: answered by DemoBackend in memory, no network at all.
+    var demo = false
     private let session: URLSession
 
     init(baseURL: URL = AppConfig.baseURL, token: String? = TokenStore.load()) {
@@ -223,6 +225,11 @@ final class APIClient: @unchecked Sendable {
     private func perform<Response: Decodable>(
         _ method: String, _ path: String, body: Data?, idempotent: Bool
     ) async throws -> Response {
+        if demo {
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            let (status, data) = DemoBackend.shared.respond(method: method, path: path, body: body)
+            return try decode(status: status, data: data)
+        }
         guard let url = URL(string: path, relativeTo: baseURL) else { throw APIError.notFound }
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -241,7 +248,10 @@ final class APIClient: @unchecked Sendable {
         } catch {
             throw APIError.network
         }
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        return try decode(status: (response as? HTTPURLResponse)?.statusCode ?? 0, data: data)
+    }
+
+    private func decode<Response: Decodable>(status: Int, data: Data) throws -> Response {
         if (200..<300).contains(status) {
             do {
                 return try JSON.decoder.decode(Response.self, from: data)

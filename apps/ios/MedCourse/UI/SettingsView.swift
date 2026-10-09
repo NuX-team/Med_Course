@@ -6,6 +6,13 @@ struct SettingsView: View {
 
     var body: some View {
         List {
+            if state.isDemo {
+                Section {
+                    Label(state.t("demo.banner"), systemImage: "sparkles")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.warning)
+                }
+            }
             if let me = state.me {
                 Section {
                     HStack(spacing: 14) {

@@ -71,9 +71,12 @@ struct TodayView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(state.format.weekdayDate(localToday))
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Text(state.format.weekdayDate(localToday))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                if state.isDemo { StatusPill(text: state.t("demo.badge"), color: Theme.warning) }
+            }
             Text("\(state.t(DayPart.of(now, zone: zone).greetingKey))\(state.me.map { ", \($0.firstName)" } ?? "")")
                 .font(.system(size: 30, weight: .bold, design: .rounded))
         }

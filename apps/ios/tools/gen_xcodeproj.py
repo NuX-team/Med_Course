@@ -244,7 +244,7 @@ target = {
     "SUPPORTS_MACCATALYST": "NO",
     "TARGETED_DEVICE_FAMILY": "1",
     "API_BASE_URL": "\"https://api.medcourse.uz\"",
-    "BOT_USERNAME": "medcourse_bot",
+    "BOT_USERNAME": "fkmzh",
 }
 target_debug = dict(target, API_BASE_URL="\"http://localhost:3003\"")
 

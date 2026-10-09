@@ -10,6 +10,7 @@ final class AppState: ObservableObject {
     @Published var lang: Lang = .ru
     @Published var toast: Toast?
     @Published var restricted = false
+    @Published var isDemo = false
 
     let api = APIClient()
     var t: Strings { Strings(lang: lang) }
@@ -55,14 +56,25 @@ final class AppState: ObservableObject {
         Haptics.success()
     }
 
+    /// Every screen on made-up data, without a server or an account.
+    func enterDemo() async {
+        DemoBackend.shared.reset()
+        api.demo = true
+        isDemo = true
+        await refreshMe()
+        Haptics.success()
+    }
+
     func signOut() async {
-        await api.logout()
+        if !isDemo { await api.logout() }
         signOutLocally()
     }
 
     func signOutLocally() {
-        TokenStore.clear()
-        api.token = nil
+        if !isDemo { TokenStore.clear() }
+        api.token = isDemo ? TokenStore.load() : nil
+        api.demo = false
+        isDemo = false
         me = nil
         withAnimation(.easeInOut) { phase = .signedOut }
     }
