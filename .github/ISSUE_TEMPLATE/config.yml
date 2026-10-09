@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Уязвимость или утечка данных
-    url: https://github.com/phant0mcyber01-hud/medcourse/security/advisories/new
+    url: https://github.com/phant0mcyber01-hud/Med_Course/security/advisories/new
     about: Сообщите закрыто, не в публичном issue.

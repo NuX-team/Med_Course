@@ -8,7 +8,7 @@ MedCourse работает с данными о здоровье, поэтому
 
 Используйте закрытое сообщение об уязвимости GitHub:
 **Security → Report a vulnerability** в этом репозитории
-([ссылка](https://github.com/phant0mcyber01-hud/medcourse/security/advisories/new)).
+([ссылка](https://github.com/phant0mcyber01-hud/Med_Course/security/advisories/new)).
 Если вкладка недоступна, напишите владельцу репозитория напрямую через его профиль GitHub.
 
 Опишите: что именно происходит, как воспроизвести, какие данные затронуты. **Не прикладывайте** настоящие данные
