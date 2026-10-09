@@ -270,3 +270,20 @@ textarea { font: inherit; color: inherit; }
 .score { position: relative; z-index: 1; margin-top: -58px; }
 .statement { margin-top: 26px; }
 .alarm-screen .mountains { opacity: 0.55; }
+
+/* One typeface everywhere: Inter. Hierarchy by size and weight only. */
+:root { --serif: var(--sans); }
+.title-xl, .course-title, .hero h2, .sheet h3, .empty h3, .statement, .alarm-title, .signin h1 {
+  font-family: var(--sans); font-style: normal; letter-spacing: -0.025em;
+}
+.signin h1 { font-size: 44px; font-weight: 300; line-height: 1.05; }
+.signin h1 em { font-style: normal; font-weight: 500; }
+.statement { font-size: 30px; font-weight: 300; line-height: 1.12; }
+.alarm-title { font-size: 38px; font-weight: 300; }
+.title-xl { font-size: 32px; font-weight: 300; }
+.course-title { font-size: 22px; font-weight: 400; }
+.hero h2 { font-size: 30px; font-weight: 300; }
+.sheet h3 { font-size: 24px; font-weight: 400; }
+.empty h3 { font-size: 22px; font-weight: 300; }
+.wordmark { font-weight: 400; }
+.status, .pill, .alarm-live, .score .l { letter-spacing: 0.08em; }
