@@ -35,7 +35,7 @@
       'history.prn': 'по необходимости',
       'set.language': 'Язык', 'set.alarm': 'Будильник', 'set.alarmOn': 'Мелодия при наступлении приёма', 'set.alarmTest': 'Проверить звук',
       'set.alarmNote': 'Звенит, пока приложение открыто. На закрытом или заблокированном телефоне веб-версия звонить не может — для этого есть напоминания в Telegram.',
-      'set.melody': 'Мелодия', 'mel.soft': 'Мягкая', 'mel.classic': 'Классика', 'mel.bright': 'Звонкая',
+      'set.melody': 'Мелодия', 'set.theme': 'Оформление', 'th.night': 'Ночь', 'th.mint': 'Мята', 'th.dusk': 'Закат', 'mel.soft': 'Мягкая', 'mel.classic': 'Классика', 'mel.bright': 'Звонкая',
       'set.install': 'Установить на экран «Домой»', 'set.installText': 'В Safari нажмите «Поделиться» внизу, затем «На экран Домой».',
       'set.privacy': 'Согласие и данные', 'set.logout': 'Выйти', 'set.logoutText': 'Выйти из демо и вернуться ко входу?',
       'demo.badge': 'Демо', 'demo.banner': 'Демо-режим: данные ненастоящие, ничего никуда не отправляется.',
@@ -77,7 +77,7 @@
       'history.prn': 'zaruratga qarab',
       'set.language': 'Til', 'set.alarm': 'Budilnik', 'set.alarmOn': 'Qabul vaqtida kuy chalinsin', 'set.alarmTest': 'Ovozni tekshirish',
       'set.alarmNote': 'Ilova ochiq turganda chalinadi. Yopiq yoki qulflangan telefonda veb-versiya chala olmaydi — buning uchun Telegram eslatmalari bor.',
-      'set.melody': 'Kuy', 'mel.soft': 'Yumshoq', 'mel.classic': 'Klassik', 'mel.bright': 'Jarangdor',
+      'set.melody': 'Kuy', 'set.theme': 'Koʻrinish', 'th.night': 'Tun', 'th.mint': 'Yalpiz', 'th.dusk': 'Shom', 'mel.soft': 'Yumshoq', 'mel.classic': 'Klassik', 'mel.bright': 'Jarangdor',
       'set.install': '«Uy» ekraniga oʻrnatish', 'set.installText': 'Safari pastidagi «Ulashish»ni, keyin «Uy ekraniga»ni bosing.',
       'set.privacy': 'Rozilik va maʼlumotlar', 'set.logout': 'Chiqish', 'set.logoutText': 'Demodan chiqib, kirishga qaytasizmi?',
       'demo.badge': 'Demo', 'demo.banner': 'Demo rejim: maʼlumotlar haqiqiy emas, hech narsa yuborilmaydi.',
@@ -102,9 +102,18 @@
     stack: [],
     alarmOn: store.get('alarmOn', true),
     melody: store.get('melody', 'soft'),
+    theme: new URLSearchParams(location.search).get('theme') || store.get('theme', 'night'),
     rung: new Set(store.get('rung', [])),
     today: null,
   };
+  const THEMES = ['night', 'mint', 'dusk'];
+  function applyTheme(name) {
+    S.theme = THEMES.includes(name) ? name : 'night';
+    store.set('theme', S.theme);
+    document.documentElement.dataset.theme = S.theme;
+    const meta = document.querySelector('meta[name=theme-color]');
+    if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#0f1222';
+  }
   const t = (k, p) => {
     let s = (T[S.lang] && T[S.lang][k]) || T.ru[k] || k;
     if (p) for (const key in p) s = s.split('{' + key + '}').join(p[key]);
@@ -351,8 +360,8 @@
   function renderSignIn() {
     const strip = ['08:00', '14:00', '20:00'].map((x, i) => `<div class="${i === 0 ? 'on' : ''}">${x}</div>`).join('');
     app().innerHTML = `<div class="signin">
-      <div class="top"><div class="mark"><i></i>MedCourse</div>
-        <div class="lang">${['ru', 'uz'].map((l) => `<button data-lang="${l}" class="${S.lang === l ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <div class="top"><div class="mark" style="display:flex;align-items:center;gap:10px"><i></i>MedCourse</div>
+        <div class="row" style="gap:14px"><div class="theme-dots">${THEMES.map((th) => `<button data-theme-pick="${th}" class="t-${th} ${S.theme === th ? 'on' : ''}" style="background:${{ night: 'linear-gradient(135deg,#7c9cff,#b28cff)', mint: 'linear-gradient(135deg,#4fe0b0,#8be8ff)', dusk: 'linear-gradient(135deg,#ff9b85,#c9a2ff)' }[th]}"></button>`).join('')}</div><div class="lang">${['ru', 'uz'].map((l) => `<button data-lang="${l}" class="${S.lang === l ? 'on' : ''}">${l}</button>`).join('')}</div></div></div>
       <div class="hero-text"><h1>${esc(t('signin.h1a'))}<br><span>${esc(t('signin.h1b'))}</span></h1><p>${esc(t('signin.lead'))}</p></div>
       <div class="clock-strip">${strip}</div>
       <div class="actions">
@@ -361,6 +370,7 @@
       </div></div>`;
     const root = app();
     root.querySelector('[data-tg]').onclick = () => toast(t('signin.soon'));
+    root.querySelectorAll('[data-theme-pick]').forEach((b) => { b.onclick = () => { applyTheme(b.dataset.themePick); vibrate(8); renderSignIn(); }; });
     root.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => { S.lang = b.dataset.lang; store.set('lang', S.lang); renderSignIn(); }; });
     root.querySelector('[data-demo]').onclick = () => {
       Alarm.unlock();
@@ -592,6 +602,8 @@
     app().innerHTML = `<div class="screen"><div class="title-xl">${esc(t('tab.settings'))}</div>
       <div class="list"><div class="list-item"><span class="pill" style="--c:var(--warning)">${esc(t('demo.badge'))}</span><span class="small muted">${esc(t('demo.banner'))}</span></div></div>
       <div class="list" style="margin-top:14px"><div class="list-item"><div class="avatar">FD</div><div class="grow"><div class="bold">Farhod Demo</div><div class="small muted">${ZONE}</div></div></div></div>
+      <div class="list-head">${esc(t('set.theme'))}</div>
+      <div class="themes">${THEMES.map((th) => `<button data-theme-pick="${th}" class="${S.theme === th ? 'on' : ''}"><i class="t-${th}"></i>${esc(t('th.' + th))}</button>`).join('')}</div>
       <div class="list-head">${esc(t('set.language'))}</div>
       <div class="list"><div class="list-item"><div class="segmented light">${['ru', 'uz'].map((l) => `<button data-lang="${l}" class="${S.lang === l ? 'on' : ''}">${l === 'ru' ? 'Русский' : 'Oʻzbekcha'}</button>`).join('')}</div></div></div>
       <div class="list-head">${esc(t('set.alarm'))}</div>
@@ -610,6 +622,7 @@
     bindTabs();
     const root = app();
     root.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => { S.lang = b.dataset.lang; store.set('lang', S.lang); renderSettings(); }; });
+    root.querySelectorAll('[data-theme-pick]').forEach((b) => { b.onclick = () => { applyTheme(b.dataset.themePick); vibrate(8); renderSettings(); }; });
     root.querySelector('[data-alarm]').onclick = () => { S.alarmOn = !S.alarmOn; store.set('alarmOn', S.alarmOn); if (S.alarmOn) Alarm.unlock(); vibrate(10); toast(t(S.alarmOn ? 'alarm.on' : 'alarm.off')); renderSettings(); };
     root.querySelectorAll('[data-mel]').forEach((b) => { b.onclick = () => { S.melody = b.dataset.mel; store.set('melody', S.melody); Alarm.test(); renderSettings(); }; });
     root.querySelector('[data-test]').onclick = () => Alarm.test();
@@ -637,6 +650,7 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); if (S.phase === 'app' && S.tab === 'today' && !S.stack.length && S.today) renderToday(); } });
   setInterval(tick, 15000);
   setInterval(() => { if (S.phase === 'app' && S.tab === 'today' && !S.stack.length && !document.querySelector('.sheet') && !document.querySelector('.alarm-screen')) renderToday(); }, 60000);
+  applyTheme(S.theme);
   render();
   window.__mc = { S, Alarm, tick, dueDose };
 })();
