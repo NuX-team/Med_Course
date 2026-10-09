@@ -440,7 +440,7 @@
     const cards = today.doses.map((d) => doseCard(d, next && d.id === next.id)).join('');
     const prn = today.asNeeded.length ? `<div class="section-title">${esc(t('today.asNeeded'))}</div><div class="stack">${today.asNeeded.map(prnCard).join('')}</div>` : '';
 
-    app().innerHTML = `<div class="screen">${head}<div class="stack">${alarmCard}${progress}${cards || `<div class="card empty"><h3>${esc(t('today.empty'))}</h3></div>`}</div>${prn}</div>${tabbar()}`;
+    app().innerHTML = `<div class="screen">${head}<div class="stack">${alarmCard}${progress}${cards ? `<div class="card timeline">${cards}</div>` : `<div class="card empty"><h3>${esc(t('today.empty'))}</h3></div>`}</div>${prn}</div>${tabbar()}`;
     bindTabs();
     const root = app();
     const u = root.querySelector('[data-unlock]');
@@ -472,20 +472,37 @@
 
   function doseCard(d, isNext) {
     const open = ['SCHEDULED', 'NOTIFIED', 'SNOOZED'].includes(d.status);
-    const sub = `${esc(amount(d.medication))} · ${esc(t('f.' + d.medication.foodRule))}`;
-    let body;
-    if (open || d.status === 'MISSED') {
-      body = `<div class="dose-actions"><button class="btn ${d.status === 'MISSED' ? 'warning' : 'success'}" data-act="take">${I.check}${esc(t(d.status === 'MISSED' ? 'takeLate' : 'take'))}</button>
-        ${open ? `<div class="btn-row">${d.snoozeOptions.length ? `<button class="btn soft warning" data-act="later">${I.alarm}${esc(t('later'))}</button>` : ''}<button class="btn soft danger" data-act="skip">${I.x}${esc(t('skip'))}</button></div>` : ''}
-        ${d.status === 'SNOOZED' && d.snoozedUntil ? `<div class="small muted" style="margin-top:8px">${esc(t('s.SNOOZED'))} ${esc(t('snoozedTo', { t: time(d.snoozedUntil) }))}</div>` : ''}</div>`;
-    } else {
-      const color = { TAKEN: 'var(--success)', TAKEN_LATE: 'var(--warning)' }[d.status] || 'var(--danger)';
+    const answerable = open || d.status === 'MISSED';
+    const expanded = isNext || d.status === 'NOTIFIED' || d.status === 'SNOOZED' || d.status === 'MISSED';
+    const color = { TAKEN: 'var(--success)', TAKEN_LATE: 'var(--warning)', SKIPPED: 'var(--danger)', MISSED: 'var(--danger)', SNOOZED: 'var(--warning)', NOTIFIED: 'var(--accent)' }[d.status] || 'var(--faint)';
+    const textColor = { TAKEN: 'var(--success-text)', TAKEN_LATE: 'var(--warning-text)', SKIPPED: 'var(--danger-text)', MISSED: 'var(--danger-text)', SNOOZED: 'var(--warning-text)', NOTIFIED: 'var(--accent-text)' }[d.status] || 'var(--muted)';
+    let meta = `${esc(amount(d.medication))} · ${esc(t('f.' + d.medication.foodRule))}`;
+    let right = '';
+    if (!answerable) {
+      const reason = d.skipReason ? ' · ' + esc(t('r.' + d.skipReason)) : '';
+      meta = `<span style="color:${textColor}">${esc(t('s.' + d.status))}${reason}</span>`;
       const canUndo = d.correctableUntil && new Date(d.correctableUntil) > new Date();
-      body = `<div class="dose-footer">${pill(t('s.' + d.status), color)}${d.skipReason ? `<span class="tiny muted">${esc(t('r.' + d.skipReason))}</span>` : ''}<span class="grow"></span>${canUndo ? `<button class="link" data-act="undo">${esc(t('undo'))}</button>` : ''}</div>`;
+      if (canUndo) right = `<button class="row-link" data-act="undo">${esc(t('undo'))}</button>`;
+    } else if (d.status === 'SNOOZED' && d.snoozedUntil) {
+      meta = `<span style="color:${textColor}">${esc(t('s.SNOOZED'))} ${esc(t('snoozedTo', { t: time(d.snoozedUntil) }))}</span>`;
     }
-    return `<div class="card ${isNext ? 'next' : ''}" data-dose="${esc(d.id)}"><div class="dose-head"><div class="dose-time ${isNext ? 'next' : ''}">${esc(time(d.scheduledAt))}</div>
-      <div class="grow"><div class="dose-name">${esc(d.medication.displayName)}</div><div class="small muted">${sub}</div></div>${statusIcon(d.status)}</div>${body}</div>`;
+    const mark = d.status === 'TAKEN' || d.status === 'TAKEN_LATE'
+      ? `<i class="tl-dot done" style="--c:${color}"><svg viewBox="0 0 24 24"><path d="M7 12.5l3.2 3.2L17 9" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></i>`
+      : d.status === 'SKIPPED' || d.status === 'MISSED'
+        ? `<i class="tl-dot done" style="--c:${color}"><svg viewBox="0 0 24 24"><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg></i>`
+        : `<i class="tl-dot ${expanded ? 'now' : ''}" style="--c:${color}"></i>`;
+    const actions = expanded && answerable ? `<div class="tl-actions">
+        <button class="btn ${d.status === 'MISSED' ? 'warning' : ''}" data-act="take">${I.check}${esc(t(d.status === 'MISSED' ? 'takeLate' : 'take'))}</button>
+        ${open ? `<div class="btn-row">${d.snoozeOptions.length ? `<button class="btn soft" data-act="later">${I.alarm}${esc(t('later'))}</button>` : ''}<button class="btn soft grey" data-act="skip">${esc(t('skip'))}</button></div>` : ''}
+      </div>` : '';
+    if (answerable && !expanded && new Date(d.scheduledAt) - Date.now() < 3600000) right = `<button class="row-take" data-act="take" aria-label="${esc(t('take'))}">${I.check}</button>`;
+    return `<div class="tl-row ${answerable ? '' : 'quiet'} ${expanded && answerable ? 'expanded' : ''}" data-dose="${esc(d.id)}">
+      <div class="tl-time ${isNext ? 'next' : ''}">${esc(time(d.scheduledAt))}</div>
+      <div class="tl-rail">${mark}</div>
+      <div class="tl-body"><div class="tl-head"><div class="grow"><div class="tl-name">${esc(d.medication.displayName)}</div><div class="tl-meta">${meta}</div></div>${right}</div>${actions}</div>
+    </div>`;
   }
+
   function prnCard(p) {
     const undo = p.undoable && new Date(p.undoable.until) > new Date();
     return `<div class="card"><div class="row"><div class="grow"><div class="dose-name">${esc(p.displayName)}</div><div class="small muted">${esc(amount(p))}</div></div>
