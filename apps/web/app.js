@@ -9,7 +9,7 @@
       'signin.subtitle': 'Приёмы на сегодня, курс от врача и история — в одном месте.',
       'signin.button': 'Войти через Telegram', 'signin.soon': 'Вход через Telegram заработает, когда подключим сервер. Пока — демо.',
       'signin.demo': 'Посмотреть без входа',
-      'signin.h1a': 'Лекарства', 'signin.h1b': 'вовремя.', 'signin.lead': 'Курс от врача, приёмы на сегодня и будильник, который не даст забыть.', 'alarm.live': 'Приём сейчас', 'today.done': 'принято',
+      'signin.h1a': 'Лекарства', 'signin.h1b': 'вовремя.', 'hero.done': 'Всё на сегодня', 'hero.good': 'Хорошо идёте', 'hero.start': 'Начнём день', 'hero.subDone': 'Все приёмы отмечены. Отдыхайте — завтра напомним снова.', 'hero.subNext': 'Следующий приём — {name} в {time}. Мы напомним мелодией.', 'hero.subNone': 'Когда врач пришлёт курс, приёмы появятся здесь.', 'hero.label': 'Приёмы сегодня', 'st.ontime': 'Вовремя', 'st.course': 'Курс', 'st.day': 'День', 'sec.doses': 'Приёмы', 'sec.prn': 'По необходимости', 'today.cta': 'Подробнее о курсе', 'stat.next': 'Следующий', 'signin.lead': 'Курс от врача, приёмы на сегодня и будильник, который не даст забыть.', 'alarm.live': 'Приём сейчас', 'today.done': 'принято',
       'tab.today': 'Сегодня', 'tab.courses': 'Курсы', 'tab.settings': 'Профиль',
       'g.morning': 'Доброе утро', 'g.day': 'Добрый день', 'g.evening': 'Добрый вечер',
       'today.progress': '{a} из {b} приёмов', 'today.allDone': 'Все приёмы на сегодня отмечены', 'today.next': 'Следующий',
@@ -51,7 +51,7 @@
       'signin.subtitle': 'Bugungi qabullar, shifokor kursi va tarix — bir joyda.',
       'signin.button': 'Telegram orqali kirish', 'signin.soon': 'Telegram orqali kirish server ulanganda ishlaydi. Hozircha — demo.',
       'signin.demo': 'Kirmasdan koʻrish',
-      'signin.h1a': 'Dorilar', 'signin.h1b': 'oʻz vaqtida.', 'signin.lead': 'Shifokor kursi, bugungi qabullar va unutishga qoʻymaydigan budilnik.', 'alarm.live': 'Hozir qabul', 'today.done': 'qabul qilindi',
+      'signin.h1a': 'Dorilar', 'signin.h1b': 'oʻz vaqtida.', 'hero.done': 'Bugungisi tayyor', 'hero.good': 'Yaxshi ketyapsiz', 'hero.start': 'Kunni boshlaymiz', 'hero.subDone': 'Barcha qabullar belgilandi. Dam oling — ertaga yana eslatamiz.', 'hero.subNext': 'Keyingi qabul — {name}, {time} da. Kuy bilan eslatamiz.', 'hero.subNone': 'Shifokor kurs yuborganda qabullar shu yerda paydo boʻladi.', 'hero.label': 'Bugungi qabullar', 'st.ontime': 'Oʻz vaqtida', 'st.course': 'Kurs', 'st.day': 'Kun', 'sec.doses': 'Qabullar', 'sec.prn': 'Zaruratga qarab', 'today.cta': 'Kurs haqida batafsil', 'stat.next': 'Keyingisi', 'signin.lead': 'Shifokor kursi, bugungi qabullar va unutishga qoʻymaydigan budilnik.', 'alarm.live': 'Hozir qabul', 'today.done': 'qabul qilindi',
       'tab.today': 'Bugun', 'tab.courses': 'Kurslar', 'tab.settings': 'Profil',
       'g.morning': 'Xayrli tong', 'g.day': 'Xayrli kun', 'g.evening': 'Xayrli kech',
       'today.progress': '{a} / {b} qabul', 'today.allDone': 'Bugungi barcha qabullar belgilandi', 'today.next': 'Keyingisi',
@@ -108,6 +108,7 @@
   };
   const THEMES = ['night', 'mint', 'dusk'];
   function applyTheme(name) {
+    name = 'night';
     S.theme = THEMES.includes(name) ? name : 'night';
     store.set('theme', S.theme);
     document.documentElement.dataset.theme = S.theme;
@@ -168,23 +169,31 @@
     sparkle: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7L12 2z"/></svg>',
     tg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.4 4.3L18.3 19c-.2 1-.8 1.3-1.7.8l-4.6-3.4-2.2 2.1c-.2.2-.5.5-1 .5l.3-4.7 8.6-7.8c.4-.3-.1-.5-.6-.2L6.5 13 2 11.6c-1-.3-1-1 .2-1.5L20.1 3.2c.8-.3 1.6.2 1.3 1.1z"/></svg>',
   };
+  const MOUNTAINS = `<svg class="mountains" viewBox="0 0 390 230" preserveAspectRatio="none"><defs>
+      <linearGradient id="mA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dfe8ee"/><stop offset=".35" stop-color="#8ea6b6"/><stop offset="1" stop-color="#2a3a44"/></linearGradient>
+      <linearGradient id="mB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4c6474"/><stop offset="1" stop-color="#1b252c"/></linearGradient>
+      <linearGradient id="mC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26333b" stop-opacity=".9"/><stop offset="1" stop-color="#0b0c0d"/></linearGradient></defs>
+      <path d="M0 150 L60 118 L95 128 L150 72 L178 60 L196 52 L214 64 L240 82 L270 100 L320 88 L390 120 L390 230 L0 230Z" fill="url(#mA)"/>
+      <path d="M150 72 L178 60 L196 52 L214 64 L203 70 L192 63 L182 74 L168 72Z" fill="#fff" opacity=".85"/>
+      <path d="M0 170 L50 150 L110 160 L160 135 L230 150 L300 130 L390 158 L390 230 L0 230Z" fill="url(#mB)"/>
+      <path d="M0 196 L80 182 L170 194 L260 178 L390 192 L390 230 L0 230Z" fill="url(#mC)"/></svg>`;
   const statusIcon = (s) => {
-    const c = { TAKEN: 'var(--accent)', TAKEN_LATE: 'var(--warning)', SKIPPED: 'var(--danger)', MISSED: 'var(--danger)', SNOOZED: 'var(--warning)', NOTIFIED: 'var(--accent)' }[s] || 'var(--faint)';
+    const c = { TAKEN: 'var(--teal)', TAKEN_LATE: 'var(--gold)', SKIPPED: 'var(--coral)', MISSED: 'var(--coral)', SNOOZED: 'var(--gold)', NOTIFIED: 'var(--blue)' }[s] || 'var(--faint)';
     const inner = {
-      TAKEN: '<path d="M6.5 12.5l3.5 3.5 7.5-8" stroke="CLR" stroke-width="2.2" fill="none" stroke-linecap="square"/>',
-      TAKEN_LATE: '<path d="M6.5 12.5l3.5 3.5 7.5-8" stroke="CLR" stroke-width="2.2" fill="none" stroke-linecap="square"/>',
-      SKIPPED: '<path d="M7 7l10 10M17 7L7 17" stroke="CLR" stroke-width="2.2" stroke-linecap="square"/>',
-      MISSED: '<path d="M6 12h12" stroke="CLR" stroke-width="2.2"/>',
-      SNOOZED: '<circle cx="12" cy="12" r="7" stroke="CLR" stroke-width="2" fill="none"/><path d="M12 8.5V12l2.5 1.5" stroke="CLR" stroke-width="2" fill="none"/>',
-      NOTIFIED: '<circle cx="12" cy="12" r="5" fill="CLR"/>',
-    }[s];
-    return `<svg class="status-icon" viewBox="0 0 24 24">${(inner || '<circle cx="12" cy="12" r="5" fill="none" stroke="CLR" stroke-width="1.5"/>').split('CLR').join(c)}</svg>`;
+      TAKEN: '<path d="M10.5 15.5l3 3 6-6.5" stroke="CLR" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+      TAKEN_LATE: '<path d="M10.5 15.5l3 3 6-6.5" stroke="CLR" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+      SKIPPED: '<path d="M11.5 11.5l7 7M18.5 11.5l-7 7" stroke="CLR" stroke-width="1.8" stroke-linecap="round"/>',
+      MISSED: '<path d="M11 15h8" stroke="CLR" stroke-width="1.8" stroke-linecap="round"/>',
+      SNOOZED: '<path d="M15 10.5V15l3 2" stroke="CLR" stroke-width="1.8" fill="none" stroke-linecap="round"/>',
+      NOTIFIED: '<circle cx="15" cy="15" r="3.2" fill="CLR"/>',
+    }[s] || '';
+    return `<svg class="status-icon" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="none" stroke="CLR" stroke-opacity=".45" stroke-width="1"/>${inner}</svg>`.split('CLR').join(c);
   };
   const ring = (frac, label, done, big) => {
     const r = 28, c = 2 * Math.PI * r;
     return `<div class="ring ${done ? 'done' : ''} ${big ? 'big' : ''}"><svg viewBox="0 0 66 66"><circle class="track" cx="33" cy="33" r="${r}"/><circle class="bar" cx="33" cy="33" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - Math.max(0.001, frac))}"/></svg><div class="label">${label}</div></div>`;
   };
-  const csColor = (s) => ({ ACTIVE: 'var(--success)', PENDING_PATIENT: 'var(--accent)', PAUSED: 'var(--warning)' })[s] || 'var(--muted)';
+  const csColor = (s) => ({ ACTIVE: 'var(--teal)', PENDING_PATIENT: 'var(--blue)', PAUSED: 'var(--gold)' })[s] || 'var(--muted)';
   const pill = (text, color) => `<span class="pill" style="--c:${color}">${esc(text)}</span>`;
 
   // ---------- Feedback ----------
@@ -299,7 +308,7 @@
     if (document.querySelector('.alarm-screen')) return;
     const el = document.createElement('div');
     el.className = 'alarm-screen';
-    el.innerHTML = `<div class="alarm-top"><div class="alarm-live"><i></i>${esc(t('alarm.live'))}</div><div class="label">MedCourse</div></div>
+    el.innerHTML = `${MOUNTAINS.replace('class="mountains"', 'class="mountains" style="position:absolute;left:0;right:0;top:46%;width:100%;height:230px"')}<div class="alarm-top"><div class="alarm-live"><i></i>${esc(t('alarm.live'))}</div><div class="wordmark" style="font-size:14px">MEDCOURSE</div></div>
       <div class="alarm-body">
         <div class="alarm-rings"><b></b><b></b><b></b><div class="alarm-time">${esc(time(d.scheduledAt))}</div></div>
         <div class="alarm-title">${esc(t('alarm.title'))}</div>
@@ -347,9 +356,12 @@
   }
   function tabbar() {
     const b = (id, icon, key) => `<button data-tab="${id}" class="${S.tab === id ? 'on' : ''}">${icon}<span>${esc(t(key))}</span></button>`;
-    return `<nav class="tabbar">${b('today', I.sun, 'tab.today')}${b('courses', I.case, 'tab.courses')}${b('settings', I.person, 'tab.settings')}</nav>`;
+    return `<nav class="tabbar"><div class="pillbar">${b('today', I.sun, 'tab.today')}${b('courses', I.case, 'tab.courses')}${b('settings', I.person, 'tab.settings')}</div>
+      <button class="fab" data-fab aria-label="+">${I.plus}</button></nav>`;
   }
   function bindTabs() {
+    const fab = app().querySelector('[data-fab]');
+    if (fab) fab.onclick = () => { S.tab = 'today'; S.stack = []; render(); setTimeout(() => { const el = document.querySelector('[data-prn-section]'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 80); };
     app().querySelectorAll('[data-tab]').forEach((el) => { el.onclick = () => { S.tab = el.dataset.tab; S.stack = []; vibrate(8); render(); window.scrollTo(0, 0); }; });
   }
   function push(screen) { S.stack.push(screen); render(); window.scrollTo(0, 0); }
@@ -358,15 +370,13 @@
   function bindBack() { const b = app().querySelector('[data-back]'); if (b) b.onclick = pop; }
 
   function renderSignIn() {
-    const strip = ['08:00', '14:00', '20:00'].map((x, i) => `<div class="${i === 0 ? 'on' : ''}">${x}</div>`).join('');
-    app().innerHTML = `<div class="signin">
-      <div class="top"><div class="mark" style="display:flex;align-items:center;gap:10px"><i></i>MedCourse</div>
-        <div class="row" style="gap:14px"><div class="theme-dots">${THEMES.map((th) => `<button data-theme-pick="${th}" class="t-${th} ${S.theme === th ? 'on' : ''}" style="background:${{ night: 'linear-gradient(135deg,#7c9cff,#b28cff)', mint: 'linear-gradient(135deg,#4fe0b0,#8be8ff)', dusk: 'linear-gradient(135deg,#ff9b85,#c9a2ff)' }[th]}"></button>`).join('')}</div><div class="lang">${['ru', 'uz'].map((l) => `<button data-lang="${l}" class="${S.lang === l ? 'on' : ''}">${l}</button>`).join('')}</div></div></div>
-      <div class="hero-text"><h1>${esc(t('signin.h1a'))}<br><span>${esc(t('signin.h1b'))}</span></h1><p>${esc(t('signin.lead'))}</p></div>
-      <div class="clock-strip">${strip}</div>
+    app().innerHTML = `<div class="signin">${MOUNTAINS}
+      <div class="top"><div class="wordmark">MEDCOURSE</div>
+        <div class="lang">${['ru', 'uz'].map((l) => `<button data-lang="${l}" class="${S.lang === l ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <div class="hero-text"><h1>${esc(t('signin.h1a'))}<br><em>${esc(t('signin.h1b'))}</em></h1><p>${esc(t('signin.lead'))}</p></div>
       <div class="actions">
         <button class="btn" data-tg>${I.tg}${esc(t('signin.button'))}</button>
-        <button class="text-link" data-demo>${esc(t('signin.demo'))} <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <button class="text-link" data-demo>${esc(t('signin.demo'))}</button>
       </div></div>`;
     const root = app();
     root.querySelector('[data-tg]').onclick = () => toast(t('signin.soon'));
@@ -383,35 +393,63 @@
   }
 
   async function renderToday() {
-    const greet = t(hourNow() >= 4 && hourNow() < 12 ? 'g.morning' : hourNow() < 18 && hourNow() >= 12 ? 'g.day' : 'g.evening');
-    const head = `<div class="eyebrow"><span>${esc(weekday(todayLocal()))}</span>${pill(t('demo.badge'), 'var(--warning)')}</div><div class="greeting">${esc(greet)},<br>Farhod</div>`;
     if (!S.today) {
-      app().innerHTML = `<div class="screen">${head}<div class="stack"><div class="card skeleton"></div><div class="card skeleton"></div></div></div>${tabbar()}`;
+      app().innerHTML = `<div class="screen"><div class="stack" style="margin-top:60px"><div class="card skeleton"></div><div class="card skeleton"></div></div></div>${tabbar()}`;
       bindTabs();
       try { S.today = await api('GET', '/today'); } catch (e) { fail(e); return; }
       if (S.tab !== 'today' || S.stack.length) return;
     }
     const today = S.today;
-    const counted = today.doses.filter((d) => d.status !== 'SUPERSEDED');
     const isOpen = (d) => ['SCHEDULED', 'NOTIFIED', 'SNOOZED'].includes(d.status);
+    const counted = today.doses.filter((d) => d.status !== 'SUPERSEDED');
     const answered = counted.filter((d) => !isOpen(d)).length;
+    const onTime = counted.filter((d) => d.status === 'TAKEN').length;
     const next = counted.filter(isOpen).sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))[0];
     const frac = counted.length ? answered / counted.length : 0;
     const allDone = counted.length > 0 && answered === counted.length;
+    const statement = !counted.length ? t('today.empty') : allDone ? t('hero.done') : answered ? t('hero.good') : t('hero.start');
+    const sub = !counted.length ? t('hero.subNone') : allDone ? t('hero.subDone') : next ? t('hero.subNext', { name: next.medication.displayName, time: time(next.scheduledAt) }) : '';
+    const statusWord = allDone ? [S.lang === 'uz' ? 'Ajoyib' : 'Отлично', 'var(--teal)'] : answered ? [S.lang === 'uz' ? 'Rejada' : 'По плану', 'var(--blue)'] : [S.lang === 'uz' ? 'Tayyor' : 'Готово к старту', '#fff'];
+    // Gauge: an arc of 200°, filled by the share of doses answered.
+    const R = 120, cx = 140, cy = 130, a0 = Math.PI * (1 + 10 / 180), a1 = -Math.PI * (10 / 180);
+    const pt = (a) => [cx + R * Math.cos(a), cy + R * Math.sin(a)];
+    const [x0, y0] = pt(a0), [x1, y1] = pt(a1);
+    const af = a0 + (a1 - a0 + 0) * 0 + (2 * Math.PI - (a0 - a1 + 2 * Math.PI) % (2 * Math.PI)) * 0;
+    void af;
+    const sweep = (Math.PI + 2 * (10 / 180) * Math.PI);
+    const aEnd = a0 + sweep * frac;
+    const [xe, ye] = pt(aEnd);
+    const ticks = Array.from({ length: 11 }, (_, i) => { const a = a0 + (sweep * i) / 10; const [x, y] = pt(a); const [xi, yi] = [cx + (R - 9) * Math.cos(a), cy + (R - 9) * Math.sin(a)]; return `<line x1="${x}" y1="${y}" x2="${xi}" y2="${yi}" stroke="rgba(255,255,255,.35)" stroke-width="1"/>`; }).join('');
+    const gauge = `<svg class="gauge" viewBox="0 0 280 140">${ticks}
+      <path d="M${x0} ${y0} A${R} ${R} 0 0 1 ${x1} ${y1}" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="3" stroke-linecap="round"/>
+      ${frac > 0 ? `<path d="M${x0} ${y0} A${R} ${R} 0 ${sweep * frac > Math.PI ? 1 : 0} 1 ${xe} ${ye}" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>` : ''}
+      <text x="${x0 - 4}" y="${y0 + 16}" fill="rgba(255,255,255,.6)" font-size="10" text-anchor="middle">0</text>
+      <text x="${x1 + 4}" y="${y1 + 16}" fill="rgba(255,255,255,.6)" font-size="10" text-anchor="middle">${counted.length}</text></svg>`;
 
+    const courseDayN = 3;
     const alarmCard = !Alarm.unlocked && S.alarmOn
-      ? `<button class="card notice tap" data-unlock><div class="notice-ico">${I.bell}</div><div class="grow"><div class="bold">${esc(t('alarm.enable'))}</div><div class="small muted">${esc(t('alarm.enableText'))}</div></div></button>` : '';
-    const sorted = counted.slice().sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
-    const progress = counted.length ? `<div>
-      <div class="day-summary"><div class="big">${answered}<span>/${counted.length}</span></div>
-        <div class="label">${allDone ? esc(t('today.allDone')) : next ? esc(t('today.next')) + ' · ' + esc(time(next.scheduledAt)) : ''}</div></div>
-      <div class="day-bar">${sorted.map((d) => `<i class="${isOpen(d) ? (next && d.id === next.id ? 'next' : '') : d.status}"></i>`).join('')}</div></div>` : '';
-    void frac;
+      ? `<button class="card notice tap" data-unlock><div class="notice-ico">${I.bell}</div><div class="grow"><div style="font-weight:500">${esc(t('alarm.enable'))}</div><div class="small muted">${esc(t('alarm.enableText'))}</div></div>${I.chev}</button>` : '';
 
     const cards = today.doses.map((d) => doseCard(d, next && d.id === next.id)).join('');
-    const prn = today.asNeeded.length ? `<div class="section-title">${esc(t('today.asNeeded'))}</div><div class="stack">${today.asNeeded.map(prnCard).join('')}</div>` : '';
+    const prn = today.asNeeded.length ? `<div class="section-title" data-prn-section>${I.plus}${esc(t('sec.prn'))}</div><div class="stack">${today.asNeeded.map(prnCard).join('')}</div>` : '';
 
-    app().innerHTML = `<div class="screen">${head}<div class="stack">${alarmCard}${progress}${cards || `<div class="card empty"><h3>${esc(t('today.empty'))}</h3></div>`}</div>${prn}</div>${tabbar()}`;
+    app().innerHTML = `<div class="screen">
+      <div class="today-hero">${MOUNTAINS}
+        <div class="eyebrow"><span>${esc(weekday(todayLocal()))}</span>${S.stack.length ? '' : `<span class="status" style="--c:var(--gold)">${esc(t('demo.badge'))}</span>`}</div>
+        <div class="hero-stats">
+          <div class="hero-stat"><b>${answered}</b>${esc(t('hero.label').split(' ')[0])}</div>
+          <div class="hero-stat"><b>${onTime}</b>${esc(t('st.ontime'))}</div>
+          <div class="hero-stat"><b>${next ? esc(time(next.scheduledAt)) : '—'}</b>${esc(t('stat.next'))}</div>
+          <div class="hero-stat"><b>${courseDayN}</b>${esc(t('st.day'))}</div>
+        </div>
+        ${counted.length ? gauge + `<div class="score"><div class="n">${answered}<span style="font-size:24px;opacity:.6">/${counted.length}</span></div><div class="l">${esc(t('hero.label'))}</div></div>` : ''}
+        <div class="statement">${esc(statement)}</div>
+        <div class="statement-sub">${esc(sub)}</div>
+        <div class="status" style="--c:${statusWord[1]};text-align:center;margin-top:12px">${statusWord[0]}</div>
+      </div>
+      <div class="stack" style="margin-top:4px">${alarmCard}</div>
+      <div class="section-title">${I.alarm}${esc(t('sec.doses'))}</div>
+      <div class="stack">${cards || `<div class="card empty"><h3>${esc(t('today.empty'))}</h3></div>`}</div>${prn}</div>${tabbar()}`;
     bindTabs();
     const root = app();
     const u = root.querySelector('[data-unlock]');
@@ -449,9 +487,9 @@
         ${open ? `<div class="btn-row">${d.snoozeOptions.length ? `<button class="btn soft warning" data-act="later">${I.alarm}${esc(t('later'))}</button>` : ''}<button class="btn soft danger" data-act="skip">${I.x}${esc(t('skip'))}</button></div>` : ''}
         ${d.status === 'SNOOZED' && d.snoozedUntil ? `<div class="small muted" style="margin-top:8px">${esc(t('s.SNOOZED'))} ${esc(t('snoozedTo', { t: time(d.snoozedUntil) }))}</div>` : ''}</div>`;
     } else {
-      const color = { TAKEN: 'var(--success)', TAKEN_LATE: 'var(--warning)' }[d.status] || 'var(--danger)';
+      const color = { TAKEN: 'var(--teal)', TAKEN_LATE: 'var(--gold)' }[d.status] || 'var(--coral)';
       const canUndo = d.correctableUntil && new Date(d.correctableUntil) > new Date();
-      body = `<div class="dose-footer">${pill(t('s.' + d.status), color)}${d.skipReason ? `<span class="tiny muted">${esc(t('r.' + d.skipReason))}</span>` : ''}<span class="grow"></span>${canUndo ? `<button class="link" data-act="undo">${esc(t('undo'))}</button>` : ''}</div>`;
+      body = `<div class="dose-footer"><span class="status" style="--c:${color}">${esc(t('s.' + d.status))}</span>${d.skipReason ? `<span class="tiny muted">${esc(t('r.' + d.skipReason))}</span>` : ''}<span class="grow"></span>${canUndo ? `<button class="link" data-act="undo">${esc(t('undo'))}</button>` : ''}</div>`;
     }
     return `<div class="card ${isNext ? 'next' : ''}" data-dose="${esc(d.id)}"><div class="dose-head"><div class="dose-time ${isNext ? 'next' : ''}">${esc(time(d.scheduledAt))}</div>
       <div class="grow"><div class="dose-name">${esc(d.medication.displayName)}</div><div class="small muted">${sub}</div></div>${statusIcon(d.status)}</div>${body}</div>`;
@@ -530,8 +568,8 @@
     const day = c.status === 'ACTIVE' ? courseDay(c.firstDay) : null;
     const pct = c.adherence && c.adherence.percent != null ? Math.round(c.adherence.percent) : null;
     return `<button class="card tap" data-course="${esc(c.id)}" style="text-align:left;width:100%">
-      <div class="row">${pill(t('cs.' + c.status), csColor(c.status))}${c.changePending ? pill(t('course.change'), 'var(--warning)') : ''}<span class="grow"></span>${I.chev}</div>
-      <div class="dose-name" style="margin-top:10px">${esc(t('course.from', { d: dayMonth(c.sentAt) }))}</div>
+      <div class="row"><span class="status" style="--c:${csColor(c.status)}">${esc(t('cs.' + c.status))}</span>${c.changePending ? `<span class="status" style="--c:var(--gold)">${esc(t('course.change'))}</span>` : ''}<span class="grow"></span>${I.chev}</div>
+      <div class="course-title">${esc(t('course.from', { d: dayMonth(c.sentAt) }))}</div>
       <div class="small muted" style="margin-top:4px">${esc(c.medications.map((m) => m.displayName).join(' · '))}</div>
       <div class="course-meta"><span>${I.steth}${esc(c.doctor.firstName + ' ' + c.doctor.lastName)}</span><span>${I.cal}${esc(t('course.days', { n: c.durationDays }))}</span>
       ${pct != null ? `<span style="color:${pct >= 80 ? 'var(--success)' : 'var(--warning)'}">${I.chart}${pct}%</span>` : ''}</div>
@@ -602,8 +640,6 @@
     app().innerHTML = `<div class="screen"><div class="title-xl">${esc(t('tab.settings'))}</div>
       <div class="list"><div class="list-item"><span class="pill" style="--c:var(--warning)">${esc(t('demo.badge'))}</span><span class="small muted">${esc(t('demo.banner'))}</span></div></div>
       <div class="list" style="margin-top:14px"><div class="list-item"><div class="avatar">FD</div><div class="grow"><div class="bold">Farhod Demo</div><div class="small muted">${ZONE}</div></div></div></div>
-      <div class="list-head">${esc(t('set.theme'))}</div>
-      <div class="themes">${THEMES.map((th) => `<button data-theme-pick="${th}" class="${S.theme === th ? 'on' : ''}"><i class="t-${th}"></i>${esc(t('th.' + th))}</button>`).join('')}</div>
       <div class="list-head">${esc(t('set.language'))}</div>
       <div class="list"><div class="list-item"><div class="segmented light">${['ru', 'uz'].map((l) => `<button data-lang="${l}" class="${S.lang === l ? 'on' : ''}">${l === 'ru' ? 'Русский' : 'Oʻzbekcha'}</button>`).join('')}</div></div></div>
       <div class="list-head">${esc(t('set.alarm'))}</div>
