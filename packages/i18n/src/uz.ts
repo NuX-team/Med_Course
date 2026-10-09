@@ -560,6 +560,14 @@ export const uz: Record<MessageKey, string> = {
 
   'panel.link':
     'Xodimlar paneliga kirish. Havola 5 daqiqa amal qiladi va bir marta ishlaydi:\n\n{link}\n\nUni hech kimga yubormang.',
+  'app.registerFirst':
+    'MedCourse ilovasiga kirish uchun avval shu yerda, botda roʻyxatdan oʻting. Keyin ilovada yana «Kirish»ni bosing.',
+  'app.linkInvalid': 'Ilovaga kirish havolasi endi amal qilmaydi. Ilovada yana «Kirish»ni bosing.',
+  'app.confirmAsk':
+    'Telefondagi MedCourse ilovasiga kirasizmi? Faqat kirishni oʻzingiz boshlagan boʻlsangiz tasdiqlang.',
+  'app.confirm': '✅ Kirishni tasdiqlash',
+  'app.confirmed':
+    'Tayyor: ilovaga qayting, kirish oʻzi bajariladi. Eslatmalar avvalgidek shu yerga, botga keladi.',
   'panel.tooMany': 'Havola juda koʻp soʻraldi. Chorak soatdan keyin urinib koʻring.',
   'panel.notConfigured': 'Bu serverda xodimlar paneli sozlanmagan.',
 

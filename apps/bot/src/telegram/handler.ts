@@ -290,6 +290,8 @@ class Flow {
         return callback.accepted ? this.#acceptConsent() : this.#declineConsent();
       case 'consentAgain':
         return this.#reconsider();
+      case 'appLogin':
+        return this.#appLoginConfirm(callback.loginId);
       case 'timezoneConfirm':
         return this.#finishOnboarding(this.#s.user?.timezone ?? DEFAULT_TIMEZONE);
       case 'timezoneOther':
@@ -402,8 +404,46 @@ class Flow {
       // A person we do not know yet registers first; the link is good for three days.
       return opened ?? [this.#send(this.#chat.say('cg.registerFirst')), ...(await this.#start())];
     }
+    const app = /^a_(\S*)$/u.exec(args);
+    if (app !== null) {
+      return this.#appLoginOffer(app[1] ?? '');
+    }
     const linked = /^i_(\S*)$/u.exec(args);
     return linked === null ? this.#start() : this.#startWithInvite(linked[1] ?? '');
+  }
+
+  /**
+   * `/start a_<code>`: the mobile app asks this person to confirm signing in. Only a registered
+   * patient can; anyone else registers first and then presses "Sign in" in the app again.
+   */
+  async #appLoginOffer(code: string): Promise<Reply[]> {
+    const { repos, now } = this.#ctx;
+    if (this.#s.user === null || this.#s.profile === null) {
+      return [this.#send(this.#chat.say('app.registerFirst')), ...(await this.#start())];
+    }
+    const check = await repos.appAuth.inspect({ linkCode: code, now });
+    if (check.status !== 'OPEN') {
+      return [this.#send(this.#chat.say('app.linkInvalid')), this.#menuMessage()];
+    }
+    const locale = this.#locale();
+    return [
+      this.#send(t(locale, 'app.confirmAsk'), [
+        [this.#button(locale, 'app.confirm', { kind: 'appLogin', loginId: check.loginId })],
+      ]),
+    ];
+  }
+
+  async #appLoginConfirm(loginId: string): Promise<Reply[]> {
+    const { user, profile } = this.#s;
+    if (user === null || profile === null) {
+      return [];
+    }
+    const locale = this.#locale();
+    const done = await this.#ctx.repos.appAuth.confirm(asPatient(user.id), {
+      loginId,
+      now: this.#ctx.now,
+    });
+    return [this.#edit(t(locale, done ? 'app.confirmed' : 'app.linkInvalid'), [])];
   }
 
   async #startWithInvite(code: string): Promise<Reply[]> {

@@ -1,0 +1,48 @@
+name: iOS
+
+on:
+  push:
+    branches: [main, 'feat/ios-**']
+    paths: ['apps/ios/**', '.github/workflows/ios.yml']
+  pull_request:
+    paths: ['apps/ios/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Compiles the app for the iOS simulator: no signing, no Apple account needed.
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode version
+        run: xcodebuild -version
+      - name: The committed project matches the sources
+        working-directory: apps/ios
+        run: |
+          python3 tools/gen_xcodeproj.py
+          git diff --exit-code MedCourse.xcodeproj
+      - name: Build for the simulator
+        working-directory: apps/ios
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project MedCourse.xcodeproj \
+            -scheme MedCourse \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee build.log | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build.log
+      - name: Core logic check
+        working-directory: apps/ios/CoreCheck
+        run: |
+          swiftc ../MedCourse/Core/*.swift main.swift -o core-check
+          ./core-check fixtures

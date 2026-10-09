@@ -7,3 +7,7 @@ dist/
 *.log
 coverage/
 .dev-pg/
+apps/ios/**/build.log
+apps/ios/CoreCheck/core-check
+apps/ios/**/xcuserdata/
+apps/ios/**/*.xcuserstate

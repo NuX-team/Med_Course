@@ -103,7 +103,7 @@ describe('a backup', () => {
 
     expect(manifest.createdAt).toBe('2026-10-04T03:15:30.000Z');
     expect(manifest.migrations.map(({ id }) => id)).toEqual(migrations.map(({ id }) => id));
-    expect(Object.keys(manifest.tables)).toHaveLength(32);
+    expect(Object.keys(manifest.tables)).toHaveLength(35);
     expect(manifest.tables).not.toHaveProperty('schema_migrations');
     expect(manifest.tables.treatment_courses?.rows).toBe(3);
     expect(manifest.tables.scheduled_doses?.rows).toBe(42);

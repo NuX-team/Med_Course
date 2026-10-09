@@ -177,6 +177,8 @@ export type Callback =
   | { readonly kind: 'language'; readonly locale: Locale }
   | { readonly kind: 'consent'; readonly accepted: boolean }
   | { readonly kind: 'consentAgain' }
+  /** The person confirms signing in to the mobile app; the sign-in's id travels in the button. */
+  | { readonly kind: 'appLogin'; readonly loginId: string }
   /** Onboarding: the proposed time zone is right. */
   | { readonly kind: 'timezoneConfirm' }
   | { readonly kind: 'timezoneOther' }
@@ -351,6 +353,8 @@ export function encodeCallback(callback: Callback): string {
       return callback.accepted ? 'c:y' : 'c:n';
     case 'consentAgain':
       return 'c:a';
+    case 'appLogin':
+      return `al:${callback.loginId}`;
     case 'timezoneConfirm':
       return 'z:ok';
     case 'timezoneOther':
@@ -604,6 +608,8 @@ export function decodeCallback(data: string): Callback | null {
         : null;
     case 'nu':
       return UUID.test(rest) ? { kind: 'prnUndo', eventId: rest } : null;
+    case 'al':
+      return UUID.test(rest) ? { kind: 'appLogin', loginId: rest } : null;
     case 'xs': {
       const [id, minutes, ...extra] = rest.split(':');
       // Digits only, no leading zero: one spelling per number.

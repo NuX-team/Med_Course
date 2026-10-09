@@ -1,6 +1,7 @@
 import type { Executor } from '../orm';
 import type { RepositoryDeps } from './context';
 import { createAlertRepository } from './alerts';
+import { createAppAuthRepository } from './app-auth';
 import { createAnswerRepository } from './answers';
 import { createCareRepository } from './care';
 import { createCaregiverRepository } from './caregivers';
@@ -35,6 +36,7 @@ export {
   type PauseRequestResult,
 } from './alerts';
 export * from './answers';
+export * from './app-auth';
 export * from './care';
 export * from './caregivers';
 export * from './changes';
@@ -70,6 +72,7 @@ export * from './users';
 export function createRepositories(db: Executor, deps: RepositoryDeps) {
   return {
     users: createUserRepository(db, deps),
+    appAuth: createAppAuthRepository(db, deps),
     consents: createConsentRepository(db),
     patients: createPatientRepository(db, deps),
     clinicians: createClinicianRepository(db, deps),

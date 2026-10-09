@@ -20,6 +20,9 @@ import {
   incidents,
   invitationAttempts,
   invitations,
+  appLogins,
+  authSessions,
+  deviceTokens,
   panelLogins,
   panelSessions,
   patientProfiles,
@@ -414,6 +417,9 @@ export function createPrivacyRepository(db: Executor, deps: RepositoryDeps) {
     await tx.delete(courseSummaries).where(eq(courseSummaries.patientId, userId));
     await tx.delete(panelSessions).where(eq(panelSessions.userId, userId));
     await tx.delete(panelLogins).where(eq(panelLogins.userId, userId));
+    await tx.delete(authSessions).where(eq(authSessions.userId, userId));
+    await tx.delete(appLogins).where(eq(appLogins.userId, userId));
+    await tx.delete(deviceTokens).where(eq(deviceTokens.userId, userId));
 
     const [account] = await tx
       .select({ telegramUserId: users.telegramUserId })

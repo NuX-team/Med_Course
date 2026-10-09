@@ -39,6 +39,30 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3(@types/node@24.19.1)(vite@8.3.2(@types/node@24.19.1)(esbuild@0.27.7)(tsx@4.23.15))
 
+  apps/api:
+    dependencies:
+      '@medcourse/config':
+        specifier: workspace:^
+        version: link:../../packages/config
+      '@medcourse/db':
+        specifier: workspace:^
+        version: link:../../packages/db
+      '@medcourse/i18n':
+        specifier: workspace:^
+        version: link:../../packages/i18n
+      '@medcourse/logger':
+        specifier: workspace:^
+        version: link:../../packages/logger
+      '@medcourse/schedule':
+        specifier: workspace:^
+        version: link:../../packages/schedule
+      fastify:
+        specifier: ^5.12.5
+        version: 5.12.5
+      grammy:
+        specifier: ^1.46.0
+        version: 1.46.0
+
   apps/bot:
     dependencies:
       '@medcourse/config':

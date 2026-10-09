@@ -126,6 +126,10 @@ const buildEnvSchema = (receivesUpdates: boolean) =>
         .refine(isHttpsUrl, { message: 'must be an https:// URL' })
         .optional(),
       TELEGRAM_MODE: z.enum(['polling', 'webhook']).optional(),
+      TELEGRAM_BOT_USERNAME: z
+        .string()
+        .regex(/^[A-Za-z][A-Za-z0-9_]{3,31}$/, 'must be the bot username without @')
+        .optional(),
       PANEL_BASE_URL: z
         .string()
         .refine(isHttpUrl, { message: 'must be an http(s):// origin with no path' })
@@ -237,6 +241,11 @@ export interface Config {
   readonly metricsToken: string | null;
   /** The panel stands behind a reverse proxy that reports the caller's address. */
   readonly panelTrustProxy: boolean;
+  /**
+   * The bot's @username, without the @. The mobile API builds its sign-in links from it
+   * (t.me/<username>?start=a_<code>); null where no API is deployed.
+   */
+  readonly telegramBotUsername: string | null;
 }
 
 export interface LoadConfigOptions {
@@ -317,6 +326,7 @@ export function loadConfig(env: Env, options: LoadConfigOptions): Config {
     backupKey: backupKeyOf(values.BACKUP_KEY),
     metricsToken: values.METRICS_TOKEN ?? null,
     panelTrustProxy: values.PANEL_TRUST_PROXY === 'true',
+    telegramBotUsername: values.TELEGRAM_BOT_USERNAME ?? null,
   };
 }
 

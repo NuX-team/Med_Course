@@ -37,7 +37,10 @@ export async function runMaintenance(options: {
   readonly now: Date;
   readonly logger: Logger;
 }): Promise<MaintenanceResult> {
-  const { telegram, invitations, panel } = createRepositories(options.orm, options.repositoryDeps);
+  const { telegram, invitations, panel, appAuth } = createRepositories(
+    options.orm,
+    options.repositoryDeps,
+  );
   const at = options.now.getTime();
 
   const updatesPruned = await telegram.pruneUpdates(new Date(at - UPDATE_RETENTION_MS));
@@ -47,7 +50,10 @@ export async function runMaintenance(options: {
     invitationsBefore: new Date(at - DEAD_INVITATION_RETENTION_MS),
   });
 
-  const panelPruned = await panel.prune(system, new Date(at - PANEL_RETENTION_MS));
+  // The mobile app's sign-ins and sessions are kept as long as the panel's.
+  const panelPruned =
+    (await panel.prune(system, new Date(at - PANEL_RETENTION_MS))) +
+    (await appAuth.prune(system, new Date(at - PANEL_RETENTION_MS)));
 
   const result = {
     updatesPruned,

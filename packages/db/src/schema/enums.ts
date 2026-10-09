@@ -7,6 +7,10 @@
 export const CLINIC_STATUSES = ['ACTIVE', 'SUSPENDED'] as const;
 export const USER_STATUSES = ['ACTIVE', 'BLOCKED', 'DELETED'] as const;
 export const LOCALES = ['ru', 'uz'] as const;
+
+/** Where the mobile app runs (stage 17). */
+export const APP_PLATFORMS = ['ios', 'android'] as const;
+export type AppPlatform = (typeof APP_PLATFORMS)[number];
 export const VERIFICATION_STATUSES = ['PENDING', 'VERIFIED', 'REVOKED'] as const;
 export const CLINIC_STAFF_ROLES = ['RECEPTION', 'CLINIC_ADMIN'] as const;
 export const PLATFORM_ROLES = ['TECH_ADMIN'] as const;
@@ -132,6 +136,8 @@ export const ENUM_COLUMNS: readonly {
   { table: 'clinics', column: 'status', values: CLINIC_STATUSES },
   { table: 'users', column: 'status', values: USER_STATUSES },
   { table: 'users', column: 'locale', values: LOCALES },
+  { table: 'auth_sessions', column: 'platform', values: APP_PLATFORMS },
+  { table: 'device_tokens', column: 'platform', values: APP_PLATFORMS },
   { table: 'clinician_profiles', column: 'verification_status', values: VERIFICATION_STATUSES },
   { table: 'clinic_staff', column: 'role', values: CLINIC_STAFF_ROLES },
   { table: 'clinic_staff', column: 'status', values: STAFF_STATUSES },
