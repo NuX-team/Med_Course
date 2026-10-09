@@ -499,7 +499,7 @@
     return `<div class="tl-row ${answerable ? '' : 'quiet'} ${expanded && answerable ? 'expanded' : ''}" data-dose="${esc(d.id)}">
       <div class="tl-time ${isNext ? 'next' : ''}">${esc(time(d.scheduledAt))}</div>
       <div class="tl-rail">${mark}</div>
-      <div class="tl-body"><div class="tl-head"><div class="grow"><div class="tl-name">${esc(d.medication.displayName)}</div><div class="tl-meta">${meta}</div></div>${right}</div>${actions}</div>
+      <div class="tl-body"><div class="tl-head"><div class="grow"><div class="tl-name">${esc(d.medication.displayName)}</div><div class="tl-meta">${meta}</div></div>${right}</div></div>${actions}
     </div>`;
   }
 
